@@ -14,14 +14,8 @@ initial begin
     reset = 1;
     load_en = 1;
     clk = 0;
-    load_rd = 1;
-    load_data = 3;
-    @ (posedge clk);
-    #1;
-   
-    load_en = 1;
     load_rd = 2;
-    load_data = 5;
+    load_data = 3;
     @ (posedge clk);
     #1;
    
