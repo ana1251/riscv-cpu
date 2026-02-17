@@ -12,18 +12,16 @@ always #5 clk = ~clk;
 
 initial begin
     reset = 1;
-    load_en = 1;
+    load_en = 0;
     clk = 0;
-    load_rd = 2;
-    load_data = 3;
+    cpu1.m1.mem[0] = 32'd10;
+    cpu1.m1.mem[1] = 32'd20;
     @ (posedge clk);
     #1;
-   
-    load_en = 0;
     reset = 1;
     @ (posedge clk); #1;
     reset = 0;
-    repeat (4) @ (posedge clk);
+    repeat (10) @ (posedge clk);
 
     $finish();
 
