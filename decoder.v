@@ -5,28 +5,31 @@ module decoder(
     output [4:0] rs1,
     output [4:0] rs2,
     output [4:0] rd,
-    output we,
+    output reg_we,
+    output mem_we,
     output op2_sel,
-    output is_sw
+    output is_sw,
+    output mem_sel
 );
 
-wire [31:0] add_ins, addi_ins, lw_ins, sw_ins;
-wire [11:0] imm;
+wire is_add, is_addi, is_lw;
+wire [6:0] opcode = instruction[31:25];
+wire [6:0] funct7 = instruction[6:0];
+wire [2:0] funct3 = instruction[14:12];
 
-assign add_ins = instruction & 32'hFE00707F;
-assign addi_ins = instruction & 32'h0000707F;
-assign lw_ins = instruction & 32'h0000707F;
-assign sw_ins = instruction & 32'h0000707F;
-assign imm = instruction[31:20];
+assign is_add = (opcode == 7'b0110011) && (funct3 == 3'b000) && (funct7 == 7'b0000000);
+assign is_addi = (opcode == 7'b0010011) && (funct3 == 3'b000);
+assign is_lw = (opcode == 7'b0000011) && (funct3 == 3'b010);
+assign is_sw = (opcode == 7'b0100011) && (funct3 == 3'b010);
 
-// choose whether to store in rs2 or imm
-assign op2_sel = (addi_ins == 32'h00000013) ? 1 : 0;
-assign we = (add_ins == 32'h00000033 || addi_ins == 32'h00000013) ? 1 : 0;
-assign is_sw = (sw_ins == 32'h00002023) ? 1 : 0;
+assign op2_sel = is_addi| is_lw | is_sw;
+assign reg_we = is_add | is_addi | is_lw;
+assign mem_we = is_sw;
+assign mem_sel = is_lw;
 
-assign rs1 = (instruction >> 15) & 5'b11111;
-assign rs2 = (instruction >> 20) & 5'b11111;
-assign rd = (instruction >> 7) & 5'b11111;
+assign rs1 = instruction[19:15];
+assign rs2 = instruction[24:20];
+assign rd = instruction[11:7];
 
 endmodule
 
