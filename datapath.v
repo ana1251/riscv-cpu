@@ -12,6 +12,7 @@ module datapath(
     input op2_sel,
     input is_sw,
     input [31:0] instruction,
+    input mem_sel,
     input [31:0] mem_rd,
     output [31:0] op2,
     output [31:0] alu_out
@@ -25,7 +26,7 @@ wire [31:0] alu_b, imm32;
 wire [11:0] imm12;
 wire [11:0] imm_s, imm_l;
 
-assign wb = (load_en == 1) ? load_data : out;
+assign wb = (load_en == 1) ? load_data : (mem_sel == 1) ? mem_rd : alu_out;
 assign reg_sel = (load_en == 1) ? load_rd : rd;
 assign we_sel = (load_en == 1) ? 1 : we;
 
@@ -36,11 +37,11 @@ assign imm12 = (is_sw == 1) ? imm_s : imm_l;
 assign imm32 = {{20{imm12[11]}}, imm12};
 assign alu_b = (op2_sel == 1) ? imm32 : op2;
 
-    
+
 regfile dut (
     .clk(clk), .write_enable(we_sel), .read_ad1(rs1), .read_ad2(rs2),
     .write_ad(reg_sel), .write_data(wb), .rd1(op1), .rd2(op2));
 
-alu num1 (.a(op1), .b(alu_b), .c(out));
+alu num1 (.a(op1), .b(alu_b), .c(alu_out));
 
 endmodule
