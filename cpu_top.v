@@ -19,7 +19,7 @@ pc p2 (.clk(clk), .reset(reset), .pc_reg(pc_reg));
 instr_memory m2 (.pc_address(pc_reg), .instruction(instruction));
 
 decoder d2 (.instruction(instruction), .rs1(rs1), .rs2(rs2), .rd(rd), .reg_we(reg_we),
-            .op2_sel(op2_sel), .is_sw(is_sw), .mem_sel(mem_sel));
+            .mem_we(mem_we), .op2_sel(op2_sel), .is_sw(is_sw), .mem_sel(mem_sel));
             
 datapath dp1 (.clk(clk), .we(reg_we), .rs1(rs1), .rs2(rs2), .rd(rd), .load_rd(load_rd),
               .load_en(load_en), .load_data(load_data), .op2_sel(op2_sel), .is_sw(is_sw),
