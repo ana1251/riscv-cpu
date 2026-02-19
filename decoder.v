@@ -13,8 +13,8 @@ module decoder(
 );
 
 wire is_add, is_addi, is_lw;
-wire [6:0] opcode = instruction[31:25];
-wire [6:0] funct7 = instruction[6:0];
+wire [6:0] opcode = instruction[6:0];
+wire [6:0] funct7 = instruction[31:25];
 wire [2:0] funct3 = instruction[14:12];
 
 assign is_add = (opcode == 7'b0110011) && (funct3 == 3'b000) && (funct7 == 7'b0000000);
