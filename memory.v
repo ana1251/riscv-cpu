@@ -15,14 +15,14 @@ integer i;
 assign index = addr >> 2;
 assign read_data = mem[index];
 
-always @ (posedge clk) begin
+always @(posedge clk) begin
     if (mem_we == 1)
          mem[index] <= write_data;
 end
 
 initial begin
     for (i = 0; i < 32; i = i+1)
-        mem[i] <= 32'h00000000;
+        mem[i] = 32'h00000000;
 end
 
 endmodule
