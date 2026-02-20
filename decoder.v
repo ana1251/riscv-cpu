@@ -5,27 +5,58 @@ module decoder(
     output [4:0] rs1,
     output [4:0] rs2,
     output [4:0] rd,
-    output reg_we,
-    output mem_we,
-    output op2_sel,
-    output is_sw,
-    output mem_sel
+    output reg reg_we,
+    output reg mem_we,
+    output reg op2_sel,
+    output reg is_sw,
+    output reg mem_sel,
+    output [2:0] funct3,
+    output [6:0] funct7,
+    output reg [1:0] alu_op
 );
 
-wire is_add, is_addi, is_lw;
+wire is_r, is_i, is_lw, is_s;
 wire [6:0] opcode = instruction[6:0];
-wire [6:0] funct7 = instruction[31:25];
-wire [2:0] funct3 = instruction[14:12];
 
-assign is_add = (opcode == 7'b0110011) && (funct3 == 3'b000) && (funct7 == 7'b0000000);
-assign is_addi = (opcode == 7'b0010011) && (funct3 == 3'b000);
-assign is_lw = (opcode == 7'b0000011) && (funct3 == 3'b010);
-assign is_sw = (opcode == 7'b0100011) && (funct3 == 3'b010);
+assign funct7 = instruction[31:25];
+assign funct3 = instruction[14:12];
 
-assign op2_sel = is_addi| is_lw | is_sw;
-assign reg_we = is_add | is_addi | is_lw;
-assign mem_we = is_sw;
-assign mem_sel = is_lw;
+assign is_r = (opcode == 7'b0110011);
+assign is_i = (opcode == 7'b0010011);
+assign is_lw = (opcode == 7'b0000011);
+assign is_s = (opcode == 7'b0100011);
+
+always @ (*) begin
+    reg_we = 0;
+    mem_we = 0;
+    op2_sel = 0;
+    is_sw = 0;
+    mem_sel = 0;
+    alu_op = 2'b00;
+    
+    if (is_r) begin
+        reg_we = 1;
+        op2_sel = 0;
+        mem_sel = 0;
+        alu_op = 2'b10;
+    end else if (is_i) begin
+        reg_we = 1;
+        op2_sel = 1;
+        mem_sel = 0;
+        alu_op = 2'b11;
+    end else if (is_lw) begin
+        reg_we = 1;
+        op2_sel = 1;
+        mem_sel = 1;
+        alu_op = 2'b00;   
+    end else if (is_s) begin
+        reg_we = 0;
+        mem_we = 1;
+        op2_sel = 1;
+        is_sw = 1;
+        alu_op = 2'b00;
+    end
+end
 
 assign rs1 = instruction[19:15];
 assign rs2 = instruction[24:20];
@@ -66,5 +97,3 @@ endmodule
 // xxxx xxxy yyyy zzzz z010 xxxx x010 0011
 // imm = x, rs2 = y, rs1 = z
 // Opcode: 010 0011, funct3 = 010
-
-
