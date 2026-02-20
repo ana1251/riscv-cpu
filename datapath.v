@@ -15,7 +15,8 @@ module datapath(
     input mem_sel,
     input [31:0] mem_rd,
     output [31:0] op2,
-    output [31:0] alu_out
+    output [31:0] alu_out,
+    output [3:0] alu_sel
 );
 
 wire [31:0] op1;
@@ -42,6 +43,6 @@ regfile dut (
     .clk(clk), .write_enable(we_sel), .read_ad1(rs1), .read_ad2(rs2),
     .write_ad(reg_sel), .write_data(wb), .rd1(op1), .rd2(op2));
 
-alu num1 (.a(op1), .b(alu_b), .c(alu_out));
+alu num1 (.a(op1), .b(alu_b), .alu_sel(alu_sel), .c(alu_out));
 
 endmodule
