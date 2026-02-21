@@ -14,9 +14,12 @@ module datapath(
     input [31:0] instruction,
     input mem_sel,
     input [31:0] mem_rd,
+    input [2:0] funct3,
     output [31:0] op2,
     output [31:0] alu_out,
-    output [3:0] alu_sel
+    output [3:0] alu_sel,
+    input branch,
+    output reg branch_taken
 );
 
 wire [31:0] op1;
@@ -26,6 +29,7 @@ wire we_sel;
 wire [31:0] alu_b, imm32;
 wire [11:0] imm12;
 wire [11:0] imm_s, imm_l;
+wire beq, blt, bltu;
 
 assign wb = (load_en == 1) ? load_data : (mem_sel == 1) ? mem_rd : alu_out;
 assign reg_sel = (load_en == 1) ? load_rd : rd;
@@ -38,6 +42,24 @@ assign imm12 = (is_sw == 1) ? imm_s : imm_l;
 assign imm32 = {{20{imm12[11]}}, imm12};
 assign alu_b = (op2_sel == 1) ? imm32 : op2;
 
+assign beq = (op1 == alu_b);
+assign blt = ($signed(op1) < $signed(alu_b));
+assign bltu = (op1 < alu_b);
+
+always @(*) begin
+    branch_taken = 0;
+    if (branch) begin
+        case (funct3)
+            3'b000: branch_taken = beq;
+            3'b001: branch_taken = ~beq;
+            3'b100: branch_taken = blt;
+            3'b101: branch_taken = ~blt;
+            3'b110: branch_taken = bltu;
+            3'b111: branch_taken = ~bltu;
+            default: branch_taken = 0;
+        endcase
+     end
+ end
 
 regfile dut (
     .clk(clk), .write_enable(we_sel), .read_ad1(rs1), .read_ad2(rs2),
