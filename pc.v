@@ -3,11 +3,11 @@
 module pc(
     input clk,
     input reset,
+    input [31:0] next_pc,
     output [31:0] pc_reg
 );
 
 reg [31:0] current_pc = 32'd0;
-wire [31:0] next_pc;
 
 assign next_pc = current_pc + 32'd4;
 
