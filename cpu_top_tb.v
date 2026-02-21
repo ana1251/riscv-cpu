@@ -16,15 +16,23 @@ initial begin
     clk = 0;
     
     #1;
-    cpu1.m1.mem[0] = 32'd10;
-    cpu1.m1.mem[1] = 32'd20;
+    load_en = 1;
+    load_data = 32'd5;
+    load_rd = 5'd2;
+    @(posedge clk);
+    
+    load_en = 1;
+    load_data = 32'd1;
+    load_rd = 5'd3;
+    
+    
     
     @(posedge clk);
     #1;
     reset = 1;
     #1;
     reset = 0;
-    repeat (10) @(posedge clk);
+    repeat (8) @(posedge clk);
 
     $finish;
 
