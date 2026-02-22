@@ -13,10 +13,12 @@ module decoder(
     output [2:0] funct3,
     output [6:0] funct7,
     output reg [1:0] alu_op,
-    output reg branch
+    output reg branch,
+    output reg jal,
+    output reg jalr
 );
 
-wire is_r, is_i, is_lw, is_s, is_br;
+wire is_r, is_i, is_lw, is_s, is_br, is_jal, is_jalr;
 wire [6:0] opcode = instruction[6:0];
 
 assign funct7 = instruction[31:25];
@@ -27,9 +29,13 @@ assign is_i = (opcode == 7'b0010011);
 assign is_lw = (opcode == 7'b0000011);
 assign is_s = (opcode == 7'b0100011);
 assign is_br = (opcode == 7'b1100011);
+assign is_jal = (opcode == 7'b1101111);
+assign is_jalr = (opcode == 7'b1100111);
 
 always @ (*) begin
     branch = 0;
+    jal = 0;
+    jalr = 0;
     reg_we = 0;
     mem_we = 0;
     op2_sel = 0;
@@ -64,7 +70,19 @@ always @ (*) begin
         mem_we = 0;
         op2_sel = 0;
         mem_sel = 0;
-        alu_op = 2'b01; 
+        alu_op = 2'b01;
+    end else if (is_jal) begin
+         jal = 1;
+         reg_we = 1;
+         mem_we = 0;
+         op2_sel = 0;
+         mem_sel = 0;
+    end else if (is_jalr) begin
+        jalr = 1;
+        reg_we = 1;
+        mem_we = 0;
+        op2_sel = 1;
+        mem_sel = 0;
     end
 end
 
