@@ -15,14 +15,17 @@ module datapath(
     input mem_sel,
     input [31:0] mem_rd,
     input [2:0] funct3,
+    output [31:0] op1,
     output [31:0] op2,
     output [31:0] alu_out,
     output [3:0] alu_sel,
     input branch,
-    output reg branch_taken
+    output reg branch_taken,
+    output jal,
+    output jalr,
+    output [31:0] pc4
 );
 
-wire [31:0] op1;
 wire [31:0] wb;
 wire [4:0] reg_sel;
 wire we_sel;
@@ -31,7 +34,7 @@ wire [11:0] imm12;
 wire [11:0] imm_s, imm_l;
 wire beq, blt, bltu;
 
-assign wb = (load_en == 1) ? load_data : (mem_sel == 1) ? mem_rd : alu_out;
+assign wb = (load_en == 1) ? load_data : (mem_sel == 1) ? mem_rd : (jal || jalr) ? pc4 : alu_out;
 assign reg_sel = (load_en == 1) ? load_rd : rd;
 assign we_sel = (load_en == 1) ? 1 : we;
 
