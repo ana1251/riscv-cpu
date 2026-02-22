@@ -15,24 +15,12 @@ initial begin
     load_en = 0;
     clk = 0;
     
-    #1;
-    load_en = 1;
-    load_data = 32'd5;
-    load_rd = 5'd2;
-    @(posedge clk);
-    
-    load_en = 1;
-    load_data = 32'd1;
-    load_rd = 5'd3;
-    
-    
-    
     @(posedge clk);
     #1;
     reset = 1;
     #1;
     reset = 0;
-    repeat (8) @(posedge clk);
+    repeat (30) @(posedge clk);
 
     $finish;
 
