@@ -26,13 +26,14 @@ initial begin
     
     #100;
 
-    check_reg(1, 32'd28);
-    check_reg(2, 32'd0);
-    check_reg(3, 32'd1);
-    check_reg(4, 32'd10);   
-    check_reg(5, 32'h0000001c);
+//Memory Tests
+    check_reg(4, 32'd8);
+    check_reg(5, 32'd9); 
     check_reg(6, 32'd7);
     
+    check_mem(0, 32'h00000008);
+    check_mem(1, 32'h00000009);
+
     $display("PASS: values are correct.");
 
     $finish;
@@ -50,14 +51,48 @@ begin
     actual = cpu1.dp1.dut.regs[regnum];
 
     if (actual != expected) begin
-        $display("FAIL: x%0d expected %h but got %h.", regnum, expected, actual);
+        $display("REGISTER FAIL: x%0d expected %h but got %h.", regnum, expected, actual);
         $finish;
     end
 end
 endtask
 
+
+task check_mem(
+    input [4:0] memnum,
+    input [31:0] expected
+);
+
+reg [31:0] actual;
+
+begin
+    actual = cpu1.m1.mem[memnum];
+
+    if (actual != expected) begin
+        $display("MEMORY FAIL: index %0d expected %h but got %h.", memnum, expected, actual);
+        $finish;
+    end
+end
+endtask
+
+
 endmodule
 
+
+/*
+// ALU Tests 
+    check_reg(14, 32'h7FFFFFFE);
+    check_reg(15, 32'hFFFFFFFE);
+    check_reg(7, 32'd1);
+    check_reg(8, 32'd0);   
+    check_reg(19, 32'd1); 
+ 
+ // Control Tests  
+    check_reg(2, 32'd0);
+    check_reg(1, 32'd28);
+    check_reg(4, 32'd10);
+    check_reg(6, 32'd7);
+*/
 
 
 
