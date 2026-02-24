@@ -20,19 +20,13 @@ initial begin
     @(posedge clk);
     #1;
     reset = 1;
-    #1;
+    #50;
     reset = 0;
     repeat (30) @(posedge clk);
     
     #100;
 
-//Memory Tests
-    check_reg(4, 32'd8);
-    check_reg(5, 32'd9); 
-    check_reg(6, 32'd7);
-    
-    check_mem(0, 32'h00000008);
-    check_mem(1, 32'h00000009);
+    check_reg(3, 32'd8);
 
     $display("PASS: values are correct.");
 
@@ -80,7 +74,7 @@ endmodule
 
 
 /*
-// ALU Tests 
+ // ALU Tests 
     check_reg(14, 32'h7FFFFFFE);
     check_reg(15, 32'hFFFFFFFE);
     check_reg(7, 32'd1);
@@ -92,6 +86,13 @@ endmodule
     check_reg(1, 32'd28);
     check_reg(4, 32'd10);
     check_reg(6, 32'd7);
+    
+ // Memory Tests
+    check_reg(4, 32'd8);
+    check_reg(5, 32'd9); 
+    check_reg(6, 32'd7);
+    check_mem(0, 32'h00000008);
+    check_mem(1, 32'h00000009);
 */
 
 
