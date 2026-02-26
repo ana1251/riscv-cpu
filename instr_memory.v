@@ -13,7 +13,7 @@ initial begin
     for(i = 0; i < 32; i = i+1)
         mem[i] = 32'h00000000;
 
-// Control Test
+ // Control Test
     mem[0] = 32'h00000093; // addi x1, x0, 0
     mem[1] = 32'h00500113; // addi x2, x0, 5
     mem[2] = 32'h00100193; // addi x3, x0, 1
@@ -27,7 +27,7 @@ initial begin
     mem[10]= 32'h00109093; // slli x1, x1, 1
     mem[11]= 32'h00028067; // jalr x0, 0(x5)
     mem[12]= 32'h00700313; // addi x6, x0, 7
-    mem[13]= 32'h00000063; // beq x0, x0, 0
+    mem[13]= 32'h00000063; // beq x0, x0, 0 
 
 end
 
@@ -59,8 +59,6 @@ endmodule
     mem[18] = 32'h01F95993; // srli x19, x18, 31
     // pad / stop
     mem[19] = 32'h00000063; // beq x0, x0, 0 (loop)
-
- 
 
 // Memory Test
     mem[0] = 32'h00000093; // addi x1, x0, 0
