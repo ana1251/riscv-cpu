@@ -26,8 +26,12 @@ initial begin
     
     #100;
 
-    check_reg(3, 32'd8);
-
+ // Control Tests  
+    check_reg(2, 32'd0);
+    check_reg(1, 32'd28);
+    check_reg(4, 32'd10);
+    check_reg(6, 32'd7);
+    
     $display("PASS: values are correct.");
 
     $finish;
@@ -42,7 +46,7 @@ task check_reg(
 reg [31:0] actual;
 
 begin
-    actual = cpu1.dp1.dut.regs[regnum];
+    actual = cpu1.id1.dut.regs[regnum];
 
     if (actual != expected) begin
         $display("REGISTER FAIL: x%0d expected %h but got %h.", regnum, expected, actual);
@@ -81,18 +85,15 @@ endmodule
     check_reg(8, 32'd0);   
     check_reg(19, 32'd1); 
  
- // Control Tests  
-    check_reg(2, 32'd0);
-    check_reg(1, 32'd28);
-    check_reg(4, 32'd10);
-    check_reg(6, 32'd7);
-    
+
+  
  // Memory Tests
     check_reg(4, 32'd8);
     check_reg(5, 32'd9); 
     check_reg(6, 32'd7);
     check_mem(0, 32'h00000008);
-    check_mem(1, 32'h00000009);
+    check_mem(1, 32'h00000009);  
+
 */
 
 
