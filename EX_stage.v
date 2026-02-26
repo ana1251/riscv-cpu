@@ -15,6 +15,7 @@ module EX_stage(
     input [4:0] exmem_rd,
     input [31:0] exmem_alu_out,
     input exmem_reg_we,
+    input exmem_memsel,
     input memwb_reg_we,
     input [4:0] memwb_rd,
     input [31:0] wb_data,
@@ -25,13 +26,13 @@ module EX_stage(
 );
 
 wire beq, blt, bltu;
-wire [31:0] forward_a, forward_rs2;
+wire [31:0] forward_a, forward_rs2, forward_sw;
 wire [31:0] alu_b;
 
-assign forward_a = (exmem_reg_we && exmem_rd != 0 && exmem_rd == idex_rs1) ? exmem_alu_out :
-                   (memwb_reg_we && memwb_rd != 0 && memwb_rd == idex_rs1) ? wb_data : idex_op1;
-assign forward_rs2 = (exmem_reg_we && exmem_rd != 0 && exmem_rd == idex_rs2) ? exmem_alu_out :
-                     (memwb_reg_we && memwb_rd != 0 && memwb_rd == idex_rs2) ? wb_data : idex_op2;  
+assign forward_a = (exmem_reg_we && (exmem_rd != 0) && (exmem_rd == idex_rs1) && !exmem_memsel) ? exmem_alu_out :
+                   (memwb_reg_we && (memwb_rd) != 0 && (memwb_rd == idex_rs1)) ? wb_data : idex_op1;
+assign forward_rs2 = (exmem_reg_we && (exmem_rd != 0) && (exmem_rd == idex_rs2) && !exmem_memsel) ? exmem_alu_out :
+                     (memwb_reg_we && (memwb_rd != 0) && (memwb_rd == idex_rs2)) ? wb_data : idex_op2;  
 
 assign store_data = forward_rs2;
 assign alu_b = (idex_op2_sel) ? idex_imm32 : forward_rs2;
