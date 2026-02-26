@@ -37,6 +37,12 @@ initial begin
     $finish;
 
 end
+/*
+always @ (posedge clk) begin
+    $display("value of x2: %h ", $signed(cpu1.id1.dut.regs[2]));
+    $display("pc: %h ", cpu1.p2.pc_reg);
+end
+*/
 
 task check_reg(
     input [4:0] regnum,
