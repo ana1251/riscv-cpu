@@ -50,7 +50,7 @@ assign imm_j = {{11{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[19:12], IF_I
 
 assign pc4_IF = pc_reg + 4;
 assign pc4_ID = IF_ID_pc + 4;
-assign next_pc = take_branch ? EX_MEM_pcbr : (take_jal ? pc_jal : take_jalr ? pc_jalr : pc4_IF);
+assign next_pc = branch_taken ? pc_branch : (take_jal ? pc_jal : take_jalr ? pc_jalr : pc4_IF);
 assign pc_stall = (load_hazard && !redirect) ? pc_reg : next_pc;
 
 assign pc_jal = IF_ID_pc + imm_j;
@@ -59,21 +59,21 @@ assign pc_jalr = (op1 + imm_i) & ~32'd1;
 // Hazards          
 assign load_hazard = ID_EX_mem_sel && (ID_EX_rd != 0) && ((ID_EX_rd == rs1) || (ID_EX_rd == rs2));
 
-assign take_branch = (EX_MEM_bt === 1'b1);
+assign take_branch = (branch_taken === 1'b1);
 assign take_jal = (jal === 1'b1);
 assign take_jalr = (jalr === 1'b1);
-assign redirect = take_branch || take_jal || take_jalr;
+assign redirect = branch_taken || take_jal || take_jalr;
 
 // IF/ID stage
 always @(posedge clk) begin
     if (reset) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= 32'd0;
-    end else if (load_hazard) begin
-        IF_ID_instr <= IF_ID_instr;
-        IF_ID_pc <= IF_ID_pc;
     end else if (redirect) begin
         IF_ID_instr <= 32'h00000013;
+        IF_ID_pc <= 32'd0;
+    end else if (load_hazard) begin
+        IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
     end else begin
         IF_ID_instr <= instruction;
