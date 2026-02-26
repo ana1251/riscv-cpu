@@ -16,6 +16,7 @@ module ID_stage(
 );
 
 wire [11:0] imm12, imm_s, imm_l;
+wire op1_f, op2_f;
 
 assign imm_l = instruction[31:20];
 assign imm_s = {instruction[31:25], instruction[11:7]};
@@ -24,6 +25,9 @@ assign imm32 = {{20{imm12[11]}}, imm12};
 
 regfile dut (
     .clk(clk), .write_enable(WB_we_sel), .read_ad1(rs1), .read_ad2(rs2),
-    .write_ad(WB_reg_sel), .write_data(WB_data), .rd1(op1), .rd2(op2));
+    .write_ad(WB_reg_sel), .write_data(WB_data), .rd1(op1_f), .rd2(op2_f));
+   
+assign op1 = (WB_we_sel &&(WB_reg_sel != 0) && (WB_reg_sel == rs1)) ? WB_data : op1_f;
+assign op2 = (WB_we_sel &&(WB_reg_sel != 0) && (WB_reg_sel == rs2)) ? WB_data : op2_f;
    
 endmodule
