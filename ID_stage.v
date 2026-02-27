@@ -16,7 +16,7 @@ module ID_stage(
 );
 
 wire [11:0] imm12, imm_s, imm_l;
-wire op1_f, op2_f;
+wire [31:0] op1_f, op2_f;
 
 assign imm_l = instruction[31:20];
 assign imm_s = {instruction[31:25], instruction[11:7]};
