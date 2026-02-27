@@ -18,7 +18,7 @@ module alu(
     output reg [31:0] c
 );
 
-always @ (*) begin
+always @(*) begin
     case (alu_sel)
         `ALU_ADD: c = a + b;
         `ALU_SUB: c = a - b;
