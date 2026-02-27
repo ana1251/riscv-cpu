@@ -18,14 +18,14 @@ module alu_control(
     output reg [3:0] alu_sel
 );
 
-always @ (*) begin
+always @(*) begin
     case (alu_op)
         2'b00: alu_sel = `ALU_ADD;     // for load/store
         2'b01: alu_sel = `ALU_SUB;     // for branches
         2'b10: begin               // R-type
                case ({funct7, funct3})
                     10'b0000000000: alu_sel = `ALU_ADD;
-                    10'b0000010000:  alu_sel = `ALU_SUB;
+                    10'b0100000000: alu_sel = `ALU_SUB;
                     10'b0000000111: alu_sel = `ALU_AND;
                     10'b0000000110: alu_sel = `ALU_OR;
                     10'b0000000100: alu_sel = `ALU_XOR;
@@ -33,7 +33,7 @@ always @ (*) begin
                     10'b0000000011: alu_sel = `ALU_SLTU;
                     10'b0000000001: alu_sel = `ALU_SLL;
                     10'b0000000101: alu_sel = `ALU_SRL;
-                    10'b0000010101: alu_sel = `ALU_SRA;
+                    10'b010000101: alu_sel = `ALU_SRA;
                     default: alu_sel = 0;
                endcase
                end
@@ -49,7 +49,7 @@ always @ (*) begin
                     3'b101: begin
                             if (funct7 == 7'b0000000)
                                 alu_sel = `ALU_SRL;   // srli
-                            else if (funct7 == 7'b0000010)
+                            else if (funct7 == 7'b0100000)
                                 alu_sel = `ALU_SRA;   // srai
                             end
                     default: alu_sel = 0;
