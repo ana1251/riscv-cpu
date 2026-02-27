@@ -22,27 +22,23 @@ initial begin
     reset = 1;
     #50;
     reset = 0;
-    repeat (30) @(posedge clk);
+    repeat (50) @(posedge clk);
     
     #100;
 
- // Control Tests  
-    check_reg(2, 32'd0);
-    check_reg(1, 32'd28);
-    check_reg(4, 32'd10);
+ // Memory Tests
+    check_reg(4, 32'd8);
+    check_reg(5, 32'd9); 
     check_reg(6, 32'd7);
+    check_mem(0, 32'h00000008);
+    check_mem(1, 32'h00000009);  
     
     $display("PASS: values are correct.");
 
     $finish;
 
 end
-/*
-always @ (posedge clk) begin
-    $display("value of x2: %h ", $signed(cpu1.id1.dut.regs[2]));
-    $display("pc: %h ", cpu1.p2.pc_reg);
-end
-*/
+
 
 task check_reg(
     input [4:0] regnum,
@@ -91,14 +87,12 @@ endmodule
     check_reg(8, 32'd0);   
     check_reg(19, 32'd1); 
  
-
-  
- // Memory Tests
-    check_reg(4, 32'd8);
-    check_reg(5, 32'd9); 
+ // Control Tests  
+    check_reg(2, 32'd0);
+    check_reg(1, 32'd28);
+    check_reg(4, 32'd10);
     check_reg(6, 32'd7);
-    check_mem(0, 32'h00000008);
-    check_mem(1, 32'h00000009);  
+  
 
 */
 
