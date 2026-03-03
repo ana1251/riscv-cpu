@@ -5,7 +5,12 @@ module cpu_top(
     input reset,
     input load_en,
     input [31:0] load_data,
-    input [4:0] load_rd
+    input [4:0] load_rd,
+    output reg [31:0] cycle_ctr,
+    output reg [31:0] instr_ret_ctr,
+    output reg [31:0] stall_ctr,
+    output reg [31:0] br_flush_ctr
+
 );
 
 wire [31:0] instruction, op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data;
@@ -201,6 +206,7 @@ assign WB_reg_sel = (load_en == 1) ? load_rd : MEM_WB_rd;
 assign WB_we_sel = (load_en == 1) ? 1 : MEM_WB_reg_we;
 
 
+// Functions called
 pc p2 (.clk(clk), .reset(reset), .next_pc(pc_stall), .pc_reg(pc_reg));
 
 instr_memory m2 (.pc_address(pc_reg), .instruction(instruction));
@@ -223,5 +229,29 @@ EX_stage ex1 (.idex_rs1(ID_EX_rs1), .idex_rs2(ID_EX_rs2), .idex_op1(ID_EX_op1), 
               .pc_jal(pc_jal), .pc_jalr(pc_jalr));
 
 memory m1 (.clk(clk), .addr(EX_MEM_alu_out), .mem_we(EX_MEM_mem_we), .read_data(mem_rd), .write_data(EX_MEM_sd));
+
+
+// Counters
+always @(posedge clk) begin
+    if (reset) begin
+        cycle_ctr <= 0;
+    end else begin
+        cycle_ctr <= cycle_ctr + 1;
+    end
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        instr_ret_ctr <= 0;
+        stall_ctr <= 0;
+        br_flush_ctr <= 0;
+    end else if (MEM_WB_reg_we) begin
+        instr_ret_ctr <= instr_ret_ctr + 1;
+    end else if (load_hazard) begin
+        stall_ctr <= stall_ctr + 1;
+    end else if (branch_taken) begin
+        br_flush_ctr <= br_flush_ctr + 1;
+    end
+end
 
 endmodule
