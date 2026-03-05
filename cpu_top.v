@@ -259,15 +259,16 @@ always @(posedge clk) begin
         stall_ctr <= 0;
         br_flush_ctr <= 0;
         flush_instr_ctr <= 0;
-    end if (MEM_WB_valid) begin
-        instr_ret_ctr <= instr_ret_ctr + 1;
-    end if (load_hazard) begin
-        stall_ctr <= stall_ctr + 1;
-    end if (ID_EX_valid && ID_EX_branch && branch_taken) begin
-        br_flush_ctr <= br_flush_ctr + 1;
-    end if (ID_EX_valid && redirect) begin
-        flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (instruction != 32'h00000013));
-    end  
+    end else begin
+        if (MEM_WB_valid)
+            instr_ret_ctr <= instr_ret_ctr + 1;
+        if (load_hazard)
+            stall_ctr <= stall_ctr + 1;
+        if (ID_EX_valid && ID_EX_branch && branch_taken)
+            br_flush_ctr <= br_flush_ctr + 1;
+        if (ID_EX_valid && redirect)
+            flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (instruction != 32'h00000013));
+    end
 end
 
 endmodule
