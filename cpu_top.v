@@ -9,8 +9,8 @@ module cpu_top(
     output reg [31:0] cycle_ctr,
     output reg [31:0] instr_ret_ctr,
     output reg [31:0] stall_ctr,
-    output reg [31:0] br_flush_ctr
-
+    output reg [31:0] br_flush_ctr,
+    output reg [31:0] flush_instr_ctr
 );
 
 wire [31:0] instruction, op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data;
@@ -25,21 +25,22 @@ wire jal, jalr, redirect, load_hazard;
 
 // pipeline registers
 reg [31:0] IF_ID_instr, IF_ID_pc;
+reg IF_ID_valid;
 
 reg [31:0] ID_EX_op1, ID_EX_op2, ID_EX_pc4, ID_EX_imm32, ID_EX_immb, ID_EX_immj, ID_EX_pc;
 reg [6:0] ID_EX_funct7;
 reg [4:0] ID_EX_rd, ID_EX_rs1, ID_EX_rs2;
 reg [2:0] ID_EX_funct3;
 reg [1:0] ID_EX_aluop;
-reg ID_EX_reg_we, ID_EX_mem_we, ID_EX_mem_sel, ID_EX_op2_sel, ID_EX_branch, ID_EX_jal, ID_EX_jalr;
+reg ID_EX_reg_we, ID_EX_mem_we, ID_EX_mem_sel, ID_EX_op2_sel, ID_EX_branch, ID_EX_jal, ID_EX_jalr, ID_EX_valid;
 
 reg [31:0] EX_MEM_alu_out, EX_MEM_sd, EX_MEM_pc4, EX_MEM_pcbr, EX_MEM_wbval;
 reg [4:0] EX_MEM_rd;
-reg EX_MEM_reg_we, EX_MEM_mem_sel, EX_MEM_mem_we, EX_MEM_jal, EX_MEM_jalr, EX_MEM_bt;
+reg EX_MEM_reg_we, EX_MEM_mem_sel, EX_MEM_mem_we, EX_MEM_jal, EX_MEM_jalr, EX_MEM_bt, EX_MEM_valid;
 
 reg [31:0] MEM_WB_alu_out, MEM_WB_mem_rd, MEM_WB_pc4;
 reg [4:0] MEM_WB_rd;
-reg MEM_WB_reg_we, MEM_WB_mem_sel, MEM_WB_jal, MEM_WB_jalr;
+reg MEM_WB_reg_we, MEM_WB_mem_sel, MEM_WB_jal, MEM_WB_jalr, MEM_WB_valid;
 
 
 assign imm_b = {{19{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[7], IF_ID_instr[30:25], IF_ID_instr[11:8], 1'b0};
@@ -60,15 +61,19 @@ always @(posedge clk) begin
     if (reset) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= 32'd0;
+        IF_ID_valid <= 0;
     end else if (redirect) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= IF_ID_pc;
+        IF_ID_valid <= 0;
     end else if (load_hazard) begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
+        IF_ID_valid <= IF_ID_valid;
     end else begin
         IF_ID_instr <= instruction;
         IF_ID_pc <= pc_reg;
+        IF_ID_valid <= 1;
     end
 end
 
@@ -95,6 +100,7 @@ always @(posedge clk) begin
         ID_EX_funct7 <= 0;
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
+        ID_EX_valid <= 0;
     end else if (load_hazard) begin
         ID_EX_reg_we <= 0;
         ID_EX_mem_we <= 0;
@@ -107,6 +113,7 @@ always @(posedge clk) begin
         ID_EX_funct3 <= 0;
         ID_EX_aluop <= 0;
         ID_EX_funct7 <= 0;
+        ID_EX_valid <= 0;
     end else if (redirect) begin
         ID_EX_reg_we <= 0;
         ID_EX_mem_we <= 0;
@@ -120,6 +127,7 @@ always @(posedge clk) begin
         ID_EX_funct3 <= 0;
         ID_EX_aluop <= 0;
         ID_EX_funct7 <= 0; 
+        ID_EX_valid <= 0;
     end else begin
         ID_EX_rs1 <= rs1;
         ID_EX_rs2 <= rs2;
@@ -141,6 +149,7 @@ always @(posedge clk) begin
         ID_EX_funct7 <= funct7;
         ID_EX_jal <= jal;
         ID_EX_jalr <= jalr; 
+        ID_EX_valid <= IF_ID_valid;
     end
 end
 
@@ -159,6 +168,7 @@ always @(posedge clk) begin
         EX_MEM_pcbr <= 0;
         EX_MEM_bt <= 0;
         EX_MEM_wbval <= 0;
+        EX_MEM_valid <= 0;
     end else begin
         EX_MEM_rd <= ID_EX_rd;
         EX_MEM_alu_out <= alu_out;
@@ -172,6 +182,7 @@ always @(posedge clk) begin
         EX_MEM_pcbr <= pc_branch;
         EX_MEM_bt <= branch_taken;
         EX_MEM_wbval <= (ID_EX_jal || ID_EX_jalr) ? ID_EX_pc4 : alu_out;
+        EX_MEM_valid <= ID_EX_valid;
     end
 end
 
@@ -186,6 +197,7 @@ always @(posedge clk) begin
         MEM_WB_mem_sel <= 0;
         MEM_WB_jal <= 0;
         MEM_WB_jalr <= 0;
+        MEM_WB_valid <= 0;
     end else begin
         MEM_WB_alu_out <= EX_MEM_alu_out;
         MEM_WB_mem_rd <= mem_rd;
@@ -195,6 +207,7 @@ always @(posedge clk) begin
         MEM_WB_mem_sel <= EX_MEM_mem_sel;
         MEM_WB_jal <= EX_MEM_jal;
         MEM_WB_jalr <= EX_MEM_jalr;
+        MEM_WB_valid <= EX_MEM_valid;
     end
 end
 
@@ -245,13 +258,16 @@ always @(posedge clk) begin
         instr_ret_ctr <= 0;
         stall_ctr <= 0;
         br_flush_ctr <= 0;
-    end else if (MEM_WB_reg_we) begin
+        flush_instr_ctr <= 0;
+    end if (MEM_WB_valid) begin
         instr_ret_ctr <= instr_ret_ctr + 1;
-    end else if (load_hazard) begin
+    end if (load_hazard) begin
         stall_ctr <= stall_ctr + 1;
-    end else if (branch_taken) begin
+    end if (ID_EX_valid && ID_EX_branch && branch_taken) begin
         br_flush_ctr <= br_flush_ctr + 1;
-    end
+    end if (ID_EX_valid && redirect) begin
+        flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (instruction != 32'h00000013));
+    end  
 end
 
 endmodule
