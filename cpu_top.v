@@ -13,14 +13,15 @@ module cpu_top(
     output reg [31:0] flush_instr_ctr
 );
 
-wire [31:0] instruction, op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data;
+wire [31:0] cache_instr;
+wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr;
 wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall;
 wire [6:0] funct7;
 wire [4:0] rs1, rs2, rd, WB_reg_sel;
 wire [3:0] alu_sel;
 wire [2:0] funct3;
 wire [1:0] alu_op;
-wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken;
+wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall, miss_pulse;
 wire jal, jalr, redirect, load_hazard;
 
 // pipeline registers
@@ -71,7 +72,7 @@ always @(posedge clk) begin
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= IF_ID_valid;
     end else begin
-        IF_ID_instr <= instruction;
+        IF_ID_instr <= cache_instr;
         IF_ID_pc <= pc_reg;
         IF_ID_valid <= 1;
     end
@@ -222,7 +223,10 @@ assign WB_we_sel = (load_en == 1) ? 1 : MEM_WB_reg_we;
 // Functions called
 pc p2 (.clk(clk), .reset(reset), .next_pc(pc_stall), .pc_reg(pc_reg));
 
-instr_memory m2 (.pc_address(pc_reg), .instruction(instruction));
+instr_memory m2 (.pc_address(pc_reg), .instruction(mem_instr));
+
+instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .instr_out(cache_instr),
+                .cache_stall(cache_stall), .miss_pulse(miss_pulse));
 
 decoder d2 (.instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .rd(rd), .reg_we(reg_we),
             .mem_we(mem_we), .op2_sel(op2_sel), .is_sw(is_sw), .mem_sel(mem_sel), .funct3(funct3),
@@ -267,7 +271,7 @@ always @(posedge clk) begin
         if (ID_EX_valid && ID_EX_branch && branch_taken)
             br_flush_ctr <= br_flush_ctr + 1;
         if (ID_EX_valid && redirect)
-            flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (instruction != 32'h00000013));
+            flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (cache_instr != 32'h00000013));
     end
 end
 
