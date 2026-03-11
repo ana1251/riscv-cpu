@@ -13,7 +13,7 @@ module cpu_top(
     output reg [31:0] flush_instr_ctr
 );
 
-wire [31:0] cache_instr;
+wire [31:0] cache_instr, mem_pc;
 wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr;
 wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall;
 wire [6:0] funct7;
@@ -67,7 +67,7 @@ always @(posedge clk) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= 0;
-    end else if (load_hazard) begin
+    end else if (load_hazard || cache_stall) begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= IF_ID_valid;
@@ -102,7 +102,7 @@ always @(posedge clk) begin
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
-    end else if (load_hazard) begin
+    end else if (load_hazard || cache_stall) begin
         ID_EX_reg_we <= 0;
         ID_EX_mem_we <= 0;
         ID_EX_mem_sel <= 0;
@@ -223,10 +223,10 @@ assign WB_we_sel = (load_en == 1) ? 1 : MEM_WB_reg_we;
 // Functions called
 pc p2 (.clk(clk), .reset(reset), .next_pc(pc_stall), .pc_reg(pc_reg));
 
-instr_memory m2 (.pc_address(pc_reg), .instruction(mem_instr));
+instr_memory m2 (.pc_address(mem_pc), .instruction(mem_instr));
 
 instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .instr_out(cache_instr),
-                .cache_stall(cache_stall), .miss_pulse(miss_pulse));
+                .cache_stall(cache_stall), .mem_pc(mem_pc), .miss_pulse(miss_pulse));
 
 decoder d2 (.instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .rd(rd), .reg_we(reg_we),
             .mem_we(mem_we), .op2_sel(op2_sel), .is_sw(is_sw), .mem_sel(mem_sel), .funct3(funct3),
@@ -266,7 +266,7 @@ always @(posedge clk) begin
     end else begin
         if (MEM_WB_valid)
             instr_ret_ctr <= instr_ret_ctr + 1;
-        if (load_hazard)
+        if (load_hazard || cache_stall)
             stall_ctr <= stall_ctr + 1;
         if (ID_EX_valid && ID_EX_branch && branch_taken)
             br_flush_ctr <= br_flush_ctr + 1;
