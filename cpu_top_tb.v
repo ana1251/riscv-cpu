@@ -36,16 +36,18 @@ initial begin
         timeout = timeout - 1;
         if (cpu1.IF_ID_instr == 32'h00000063)
             stable = stable + 1;
+        if (cpu1.miss_pulse) begin
+                $display("ICACHE MISS at PC=%h, instr = %h", cpu1.mem_pc, cpu1.mem_instr);
+        end
     end
     
     repeat (4) @(posedge clk);
 
-    // Memory Tests
-    check_reg(4, 32'd8);
-    check_reg(5, 32'd9); 
+  // Control Tests  
+    check_reg(2, 32'd0);
+    check_reg(1, 32'd28);
+    check_reg(4, 32'd10);
     check_reg(6, 32'd7);
-    check_mem(0, 32'h00000008);
-    check_mem(1, 32'h00000009); 
     
     $display("PASS: values are correct.");
     
@@ -54,15 +56,15 @@ initial begin
     if (instr_ret_ctr != 0 || cycle_ctr != 0) begin
         assign cpi = $itor(cycle_ctr) / $itor(instr_ret_ctr);
         assign ipc = 1 / cpi;
-        $display("Cycle Count: %0d,  Instructions Retired: %0d", cycle_ctr, instr_ret_ctr);
-        $display("Stall Count: %0d,  Branch Flush Count: %0d", stall_ctr, br_flush_ctr);
-        $display("Flushed Instructions Count: %0d", flush_instr_ctr);
+        $display("\nCycle Count: %0d,    Instructions Retired: %0d", cycle_ctr, instr_ret_ctr);
         $display("Miss Counter: %0d,   Cache Stall Counter: %0d", miss_pulse_ctr, cache_stall_ctr);
+        $display("Stall Count: %0d,     Branch Flush Count: %0d", stall_ctr, br_flush_ctr);
+        $display("Flushed Instructions Count: %0d", flush_instr_ctr);
         $display("CPI: %0f", cpi);
-        $display("IPC: %0f", ipc);
+        $display("IPC: %0f\n", ipc);
     end else begin
         $display("Could not calculate CPI/IPC");
-    end
+    end 
 
     $finish;
 
@@ -116,12 +118,14 @@ endmodule
     check_reg(8, 32'd0);   
     check_reg(19, 32'd1);
  
-  // Control Tests  
-    check_reg(2, 32'd0);
-    check_reg(1, 32'd28);
-    check_reg(4, 32'd10);
-    check_reg(6, 32'd7);
+
   
+   // Memory Tests
+    check_reg(4, 32'd8);
+    check_reg(5, 32'd9); 
+    check_reg(6, 32'd7);
+    check_mem(0, 32'h00000008);
+    check_mem(1, 32'h00000009); 
 
 */
 
