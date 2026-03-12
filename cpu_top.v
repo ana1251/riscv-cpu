@@ -10,10 +10,12 @@ module cpu_top(
     output reg [31:0] instr_ret_ctr,
     output reg [31:0] stall_ctr,
     output reg [31:0] br_flush_ctr,
-    output reg [31:0] flush_instr_ctr
+    output reg [31:0] flush_instr_ctr,
+    output reg [31:0] miss_pulse_ctr,
+    output reg [31:0] cache_stall_ctr
 );
 
-wire [31:0] cache_instr, mem_pc;
+wire [31:0] cache_instr, mem_pc, miss_pulse;
 wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr;
 wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall;
 wire [6:0] funct7;
@@ -21,7 +23,7 @@ wire [4:0] rs1, rs2, rd, WB_reg_sel;
 wire [3:0] alu_sel;
 wire [2:0] funct3;
 wire [1:0] alu_op;
-wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall, miss_pulse;
+wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall;
 wire jal, jalr, redirect, load_hazard;
 
 // pipeline registers
@@ -51,7 +53,7 @@ assign imm_j = {{11{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[19:12], IF_I
 assign pc4_IF = pc_reg + 4;
 assign pc4_ID = IF_ID_pc + 4;
 assign next_pc = branch_taken ? pc_branch : (ID_EX_jal ? pc_jal : ID_EX_jalr ? pc_jalr : pc4_IF);
-assign pc_stall = redirect ? next_pc : load_hazard ? pc_reg : next_pc;
+assign pc_stall = redirect ? next_pc : (load_hazard || cache_stall) ? pc_reg : next_pc;
 
 // Hazards          
 assign load_hazard = ID_EX_mem_sel && (ID_EX_rd != 0) && ((ID_EX_rd == rs1) || (ID_EX_rd == rs2));
@@ -263,15 +265,22 @@ always @(posedge clk) begin
         stall_ctr <= 0;
         br_flush_ctr <= 0;
         flush_instr_ctr <= 0;
+        miss_pulse_ctr <= 0;
+        cache_stall_ctr <= 0;
     end else begin
         if (MEM_WB_valid)
             instr_ret_ctr <= instr_ret_ctr + 1;
-        if (load_hazard || cache_stall)
+        if (load_hazard)
             stall_ctr <= stall_ctr + 1;
         if (ID_EX_valid && ID_EX_branch && branch_taken)
             br_flush_ctr <= br_flush_ctr + 1;
         if (ID_EX_valid && redirect)
             flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (cache_instr != 32'h00000013));
+        if (miss_pulse)
+            miss_pulse_ctr <= miss_pulse_ctr + 1;
+             $display("ICACHE MISS at PC=%h", pc_reg);
+        if (cache_stall)
+            cache_stall_ctr <= cache_stall_ctr + 1;
     end
 end
 
