@@ -15,6 +15,8 @@ module cpu_top(
     output reg [31:0] cache_stall_ctr
 );
 
+reg pending_redirect;
+reg [31:0] pending_pc;
 wire [31:0] cache_instr, mem_pc, miss_pulse;
 wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr;
 wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall;
@@ -53,11 +55,25 @@ assign imm_j = {{11{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[19:12], IF_I
 assign pc4_IF = pc_reg + 4;
 assign pc4_ID = IF_ID_pc + 4;
 assign next_pc = branch_taken ? pc_branch : (ID_EX_jal ? pc_jal : ID_EX_jalr ? pc_jalr : pc4_IF);
-assign pc_stall = redirect ? next_pc : (load_hazard || cache_stall) ? pc_reg : next_pc;
+
+always @(posedge clk) begin
+    if (reset) begin
+        pending_redirect <= 0;
+        pending_pc <= 0;
+    end else if ((cache_stall || load_hazard) && redirect) begin
+        pending_redirect <= 1;
+        pending_pc <= next_pc;
+    end else if (pending_redirect && !(cache_stall || load_hazard)) begin
+        pending_redirect <= 0;
+    end
+end
+
+assign pc_stall = (load_hazard || cache_stall) ? pc_reg : pending_redirect ? pending_pc : next_pc;
 
 // Hazards          
 assign load_hazard = ID_EX_mem_sel && (ID_EX_rd != 0) && ((ID_EX_rd == rs1) || (ID_EX_rd == rs2));
 assign redirect = branch_taken || ID_EX_jal || ID_EX_jalr;
+
 
 // IF/ID stage
 always @(posedge clk) begin
@@ -65,7 +81,7 @@ always @(posedge clk) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= 32'd0;
         IF_ID_valid <= 0;
-    end else if (redirect) begin
+    end else if (redirect || (pending_redirect && !(cache_stall || load_hazard))) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= 0;
@@ -117,7 +133,7 @@ always @(posedge clk) begin
         ID_EX_aluop <= 0;
         ID_EX_funct7 <= 0;
         ID_EX_valid <= 0;
-    end else if (redirect) begin
+    end else if (redirect || (pending_redirect && !(cache_stall || load_hazard))) begin
         ID_EX_reg_we <= 0;
         ID_EX_mem_we <= 0;
         ID_EX_mem_sel <= 0;
@@ -274,11 +290,10 @@ always @(posedge clk) begin
             stall_ctr <= stall_ctr + 1;
         if (ID_EX_valid && ID_EX_branch && branch_taken)
             br_flush_ctr <= br_flush_ctr + 1;
-        if (ID_EX_valid && redirect)
+        if (ID_EX_valid && (redirect || (pending_redirect && !(cache_stall || load_hazard))))
             flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (cache_instr != 32'h00000013));
         if (miss_pulse)
             miss_pulse_ctr <= miss_pulse_ctr + 1;
-             $display("ICACHE MISS at PC=%h", pc_reg);
         if (cache_stall)
             cache_stall_ctr <= cache_stall_ctr + 1;
     end
