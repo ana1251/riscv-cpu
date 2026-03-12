@@ -17,7 +17,7 @@ module cpu_top(
 
 reg pending_redirect;
 reg [31:0] pending_pc;
-wire [31:0] cache_instr, mem_pc, miss_pulse;
+wire [31:0] cache_instr, mem_pc;
 wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr;
 wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall;
 wire [6:0] funct7;
@@ -26,7 +26,7 @@ wire [3:0] alu_sel;
 wire [2:0] funct3;
 wire [1:0] alu_op;
 wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall;
-wire jal, jalr, redirect, load_hazard;
+wire jal, jalr, redirect, load_hazard, miss_pulse, redirect_eff, stall, take_pending;
 
 // pipeline registers
 reg [31:0] IF_ID_instr, IF_ID_pc;
@@ -56,23 +56,27 @@ assign pc4_IF = pc_reg + 4;
 assign pc4_ID = IF_ID_pc + 4;
 assign next_pc = branch_taken ? pc_branch : (ID_EX_jal ? pc_jal : ID_EX_jalr ? pc_jalr : pc4_IF);
 
+assign stall = cache_stall || load_hazard;
+assign take_pending = pending_redirect && !stall;
+assign redirect_eff = redirect || take_pending;
+
 always @(posedge clk) begin
     if (reset) begin
         pending_redirect <= 0;
         pending_pc <= 0;
-    end else if ((cache_stall || load_hazard) && redirect) begin
+    end else if (stall && redirect) begin
         pending_redirect <= 1;
         pending_pc <= next_pc;
-    end else if (pending_redirect && !(cache_stall || load_hazard)) begin
+    end else if (take_pending) begin
         pending_redirect <= 0;
     end
 end
 
-assign pc_stall = (load_hazard || cache_stall) ? pc_reg : pending_redirect ? pending_pc : next_pc;
+assign pc_stall = stall ? pc_reg : pending_redirect ? pending_pc : next_pc;
 
 // Hazards          
 assign load_hazard = ID_EX_mem_sel && (ID_EX_rd != 0) && ((ID_EX_rd == rs1) || (ID_EX_rd == rs2));
-assign redirect = branch_taken || ID_EX_jal || ID_EX_jalr;
+assign redirect = ID_EX_valid && (branch_taken || ID_EX_jal || ID_EX_jalr);
 
 
 // IF/ID stage
@@ -81,11 +85,11 @@ always @(posedge clk) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= 32'd0;
         IF_ID_valid <= 0;
-    end else if (redirect || (pending_redirect && !(cache_stall || load_hazard))) begin
+    end else if (redirect_eff) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= 0;
-    end else if (load_hazard || cache_stall) begin
+    end else if (stall) begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= IF_ID_valid;
@@ -120,20 +124,7 @@ always @(posedge clk) begin
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
-    end else if (load_hazard || cache_stall) begin
-        ID_EX_reg_we <= 0;
-        ID_EX_mem_we <= 0;
-        ID_EX_mem_sel <= 0;
-        ID_EX_branch <= 0;
-        ID_EX_rd <= 0;
-        ID_EX_jal <= 0;
-        ID_EX_jalr <= 0;
-        ID_EX_op2_sel <= 0;
-        ID_EX_funct3 <= 0;
-        ID_EX_aluop <= 0;
-        ID_EX_funct7 <= 0;
-        ID_EX_valid <= 0;
-    end else if (redirect || (pending_redirect && !(cache_stall || load_hazard))) begin
+    end else if (redirect_eff) begin
         ID_EX_reg_we <= 0;
         ID_EX_mem_we <= 0;
         ID_EX_mem_sel <= 0;
@@ -147,6 +138,41 @@ always @(posedge clk) begin
         ID_EX_aluop <= 0;
         ID_EX_funct7 <= 0; 
         ID_EX_valid <= 0;
+    end else if (load_hazard) begin
+        ID_EX_reg_we <= 0;
+        ID_EX_mem_we <= 0;
+        ID_EX_mem_sel <= 0;
+        ID_EX_branch <= 0;
+        ID_EX_rd <= 0;
+        ID_EX_jal <= 0;
+        ID_EX_jalr <= 0;
+        ID_EX_op2_sel <= 0;
+        ID_EX_funct3 <= 0;
+        ID_EX_aluop <= 0;
+        ID_EX_funct7 <= 0;
+        ID_EX_valid <= 0;
+    end else if (cache_stall) begin
+        ID_EX_rs1 <= ID_EX_rs1;
+        ID_EX_rs2 <= ID_EX_rs2;
+        ID_EX_op1 <= ID_EX_op1;
+        ID_EX_op2 <= ID_EX_op2;
+        ID_EX_pc4 <= ID_EX_pc4;
+        ID_EX_rd <= ID_EX_rd;
+        ID_EX_reg_we <= ID_EX_reg_we;
+        ID_EX_mem_we <= ID_EX_mem_we;
+        ID_EX_mem_sel <= ID_EX_mem_sel;
+        ID_EX_op2_sel <= ID_EX_op2_sel;
+        ID_EX_imm32 <= ID_EX_imm32;
+        ID_EX_immb <= ID_EX_immb;
+        ID_EX_immj <= ID_EX_immj;
+        ID_EX_branch <= ID_EX_branch;
+        ID_EX_pc <= ID_EX_pc;
+        ID_EX_funct3 <= ID_EX_funct3;
+        ID_EX_aluop <= ID_EX_aluop;
+        ID_EX_funct7 <= ID_EX_funct7;
+        ID_EX_jal <= ID_EX_jal;
+        ID_EX_jalr <= ID_EX_jalr;
+        ID_EX_valid <= ID_EX_valid;
     end else begin
         ID_EX_rs1 <= rs1;
         ID_EX_rs2 <= rs2;
@@ -290,7 +316,7 @@ always @(posedge clk) begin
             stall_ctr <= stall_ctr + 1;
         if (ID_EX_valid && ID_EX_branch && branch_taken)
             br_flush_ctr <= br_flush_ctr + 1;
-        if (ID_EX_valid && (redirect || (pending_redirect && !(cache_stall || load_hazard))))
+        if (ID_EX_valid && redirect_eff)
             flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (cache_instr != 32'h00000013));
         if (miss_pulse)
             miss_pulse_ctr <= miss_pulse_ctr + 1;
@@ -299,4 +325,10 @@ always @(posedge clk) begin
     end
 end
 
+always @(posedge clk)
+  if (!reset && MEM_WB_valid && WB_we_sel && WB_reg_sel != 0)
+    $display("WB: x%0d <= %h", WB_reg_sel, WB_data);
+
 endmodule
+
+
