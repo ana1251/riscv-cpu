@@ -36,9 +36,6 @@ initial begin
         timeout = timeout - 1;
         if (cpu1.IF_ID_instr == 32'h00000063)
             stable = stable + 1;
-        if (cpu1.miss_pulse) begin
-                $display("ICACHE MISS at PC=%h, instr = %h", cpu1.mem_pc, cpu1.mem_instr);
-        end
     end
     
     repeat (4) @(posedge clk);
