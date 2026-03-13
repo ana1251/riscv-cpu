@@ -15,9 +15,7 @@ module cpu_top(
     output reg [31:0] cache_stall_ctr
 );
 
-reg pending_redirect;
-reg [31:0] pending_pc;
-wire [31:0] cache_instr, mem_pc, cache_pc;
+wire [31:0] cache_instr, mem_pc;
 wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr;
 wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall;
 wire [6:0] funct7;
@@ -25,8 +23,8 @@ wire [4:0] rs1, rs2, rd, WB_reg_sel;
 wire [3:0] alu_sel;
 wire [2:0] funct3;
 wire [1:0] alu_op;
-wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall, cache_valid;
-wire jal, jalr, redirect, load_hazard, miss_pulse, redirect_eff, stall, take_pending;
+wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall, miss_hold;
+wire jal, jalr, redirect, load_hazard, miss_pulse, stall;
 
 // pipeline registers
 reg [31:0] IF_ID_instr, IF_ID_pc;
@@ -56,27 +54,13 @@ assign pc4_IF = pc_reg + 4;
 assign pc4_ID = IF_ID_pc + 4;
 assign next_pc = branch_taken ? pc_branch : ID_EX_jal ? pc_jal : ID_EX_jalr ? pc_jalr : pc4_IF;
 
-assign stall = cache_stall || load_hazard;
-assign take_pending = pending_redirect && !cache_stall;
-assign redirect_eff = (redirect && !cache_stall) || take_pending;
-
-always @(posedge clk) begin
-    if (reset) begin
-        pending_redirect <= 0;
-        pending_pc <= 0;
-    end else if (cache_stall && redirect) begin
-        pending_redirect <= 1;
-        pending_pc <= next_pc;
-    end else if (take_pending) begin
-        pending_redirect <= 0;
-    end
-end
-
-assign pc_stall = stall ? pc_reg : pending_redirect ? pending_pc : next_pc;
-
 // Hazards          
 assign load_hazard = ID_EX_mem_sel && (ID_EX_rd != 0) && ((ID_EX_rd == rs1) || (ID_EX_rd == rs2));
 assign redirect = ID_EX_valid && (branch_taken || ID_EX_jal || ID_EX_jalr);
+
+assign stall = cache_stall || load_hazard;
+assign miss_hold = cache_stall && miss_pulse;
+assign pc_stall = redirect ? next_pc : stall ? pc_reg : pc4_IF;
 
 
 // IF/ID stage
@@ -85,22 +69,17 @@ always @(posedge clk) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= 32'd0;
         IF_ID_valid <= 0;
-    end else if (redirect_eff) begin
+    end else if (redirect) begin
         IF_ID_instr <= 32'h00000013;
-        IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= 0;
     end else if (stall) begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= IF_ID_valid;
-    end else if (cache_valid) begin
-        IF_ID_instr <= cache_instr;
-        IF_ID_pc <= cache_pc;
-        IF_ID_valid <= 1;
     end else begin
-        IF_ID_instr <= 32'h00000013;
-        IF_ID_pc <= IF_ID_pc;
-        IF_ID_valid <= 0;
+        IF_ID_instr <= cache_instr;
+        IF_ID_pc <= pc_reg;
+        IF_ID_valid <= 1;
     end
 end
 
@@ -128,29 +107,7 @@ always @(posedge clk) begin
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
-    end else if (cache_stall) begin
-        ID_EX_rs1 <= ID_EX_rs1;
-        ID_EX_rs2 <= ID_EX_rs2;
-        ID_EX_op1 <= ID_EX_op1;
-        ID_EX_op2 <= ID_EX_op2;
-        ID_EX_pc4 <= ID_EX_pc4;
-        ID_EX_rd <= ID_EX_rd;
-        ID_EX_reg_we <= ID_EX_reg_we;
-        ID_EX_mem_we <= ID_EX_mem_we;
-        ID_EX_mem_sel <= ID_EX_mem_sel;
-        ID_EX_op2_sel <= ID_EX_op2_sel;
-        ID_EX_imm32 <= ID_EX_imm32;
-        ID_EX_immb <= ID_EX_immb;
-        ID_EX_immj <= ID_EX_immj;
-        ID_EX_branch <= ID_EX_branch;
-        ID_EX_pc <= ID_EX_pc;
-        ID_EX_funct3 <= ID_EX_funct3;
-        ID_EX_aluop <= ID_EX_aluop;
-        ID_EX_funct7 <= ID_EX_funct7;
-        ID_EX_jal <= ID_EX_jal;
-        ID_EX_jalr <= ID_EX_jalr;
-        ID_EX_valid <= ID_EX_valid;
-    end else if (redirect_eff) begin
+    end else if (redirect) begin
         ID_EX_reg_we <= 0;
         ID_EX_mem_we <= 0;
         ID_EX_mem_sel <= 0;
@@ -163,7 +120,7 @@ always @(posedge clk) begin
         ID_EX_aluop <= 0;
         ID_EX_funct7 <= 0; 
         ID_EX_valid <= 0;
-     end else if (load_hazard) begin
+     end else if (load_hazard || cache_stall) begin
         ID_EX_reg_we <= 0;
         ID_EX_mem_we <= 0;
         ID_EX_mem_sel <= 0;
@@ -217,20 +174,6 @@ always @(posedge clk) begin
         EX_MEM_bt <= 0;
         EX_MEM_wbval <= 0;
         EX_MEM_valid <= 0;
-    end else if (cache_stall) begin
-        EX_MEM_rd <= EX_MEM_rd;
-        EX_MEM_alu_out <= EX_MEM_alu_out;
-        EX_MEM_reg_we <= EX_MEM_reg_we;
-        EX_MEM_mem_sel <= EX_MEM_mem_sel;
-        EX_MEM_mem_we <= EX_MEM_mem_we;
-        EX_MEM_sd <= EX_MEM_sd;
-        EX_MEM_pc4 <= EX_MEM_pc4;
-        EX_MEM_jal <= EX_MEM_jal;
-        EX_MEM_jalr <= EX_MEM_jalr;
-        EX_MEM_pcbr <= EX_MEM_pcbr;
-        EX_MEM_bt <= EX_MEM_bt;
-        EX_MEM_wbval <= EX_MEM_wbval;
-        EX_MEM_valid <= EX_MEM_valid;
     end else begin
         EX_MEM_rd <= ID_EX_rd;
         EX_MEM_alu_out <= alu_out;
@@ -260,16 +203,6 @@ always @(posedge clk) begin
         MEM_WB_jal <= 0;
         MEM_WB_jalr <= 0;
         MEM_WB_valid <= 0;
-    end else if (cache_stall) begin
-        MEM_WB_alu_out <= MEM_WB_alu_out;
-        MEM_WB_mem_rd <= MEM_WB_mem_rd;
-        MEM_WB_pc4 <= MEM_WB_pc4;
-        MEM_WB_rd <= MEM_WB_rd;
-        MEM_WB_reg_we <= MEM_WB_reg_we;
-        MEM_WB_mem_sel <= MEM_WB_mem_sel;
-        MEM_WB_jal <= MEM_WB_jal;
-        MEM_WB_jalr <= MEM_WB_jalr;
-        MEM_WB_valid <= MEM_WB_valid;
     end else begin
         MEM_WB_alu_out <= EX_MEM_alu_out;
         MEM_WB_mem_rd <= mem_rd;
@@ -297,8 +230,7 @@ pc p2 (.clk(clk), .reset(reset), .next_pc(pc_stall), .pc_reg(pc_reg));
 instr_memory m2 (.pc_address(mem_pc), .instruction(mem_instr));
 
 instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .instr_out(cache_instr),
-                .instr_pc(cache_pc), .instr_valid(cache_valid), .cache_stall(cache_stall), .mem_pc(mem_pc),
-                .miss_pulse(miss_pulse));
+                .cache_stall(cache_stall), .mem_pc(mem_pc), .miss_pulse(miss_pulse));
 
 decoder d2 (.instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .rd(rd), .reg_we(reg_we),
             .mem_we(mem_we), .op2_sel(op2_sel), .is_sw(is_sw), .mem_sel(mem_sel), .funct3(funct3),
