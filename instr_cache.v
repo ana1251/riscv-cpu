@@ -5,9 +5,7 @@ module instr_cache(
     input reset,
     input [31:0] pc,
     input [31:0] mem_instr,
-    output reg [31:0] instr_out,
-    output reg [31:0] instr_pc,
-    output reg instr_valid,
+    output [31:0] instr_out,
     output cache_stall,
     output wire [31:0] mem_pc,
     output miss_pulse
@@ -19,7 +17,7 @@ reg valid [15:0];
 reg [31:0] miss_pc;
 reg [3:0] miss_index;
 reg [25:0] miss_tag;
-reg [1:0] miss_timer = 2'd3;
+reg [1:0] miss_timer = 2'd1;
 reg miss;
 wire [3:0] index;
 wire [25:0] pc_tag;
@@ -32,6 +30,7 @@ assign hit = (valid[index] && tag[index] == pc_tag);
 assign mem_pc = miss ? miss_pc : pc;
 assign miss_pulse = (!miss && !hit);
 assign cache_stall = miss || miss_pulse;
+assign instr_out = reset ? 32'h00000013 : (hit && !miss) ? data[index] : 32'h00000013;
 
 
 always @(posedge clk) begin
@@ -41,9 +40,6 @@ always @(posedge clk) begin
         miss_pc <= 0;
         miss_index <= 0;
         miss_tag <= 0;
-        instr_out <= 32'h00000013;
-        instr_pc <= 32'h00000000;
-        instr_valid <= 0;
                 
         for (i = 0; i < 16; i = i+1) begin
             data[i] <= 32'h00000013;
@@ -51,9 +47,7 @@ always @(posedge clk) begin
             valid[i] <= 0;
         end
         
-    end else begin
-        instr_valid <= 0;
-    
+    end else begin    
         if (miss) begin            
             if (miss_timer != 0) begin
                 miss_timer <= miss_timer - 1;
@@ -61,24 +55,14 @@ always @(posedge clk) begin
                 data[miss_index] <= mem_instr;
                 tag[miss_index] <= miss_tag;
                 valid[miss_index] <= 1'b1;
-                instr_out <= mem_instr;
-                instr_pc <= miss_pc;
-                instr_valid <= 1;
                 miss <= 0;
-            end
-            
-        end else begin
-            if (hit) begin
-                instr_out <= data[index];
-                instr_pc <= pc;
-                instr_valid <= 1;
-            end else begin
-                miss <= 1;
-                miss_pc <= pc;
-                miss_index <= index;
-                miss_tag <= pc_tag;
-                miss_timer <= 2'd3;
-            end
+            end 
+        end else if (!hit) begin
+            miss <= 1;
+            miss_pc <= pc;
+            miss_index <= index;
+            miss_tag <= pc_tag;
+            miss_timer <= 2'd3;
         end
     end
 end
