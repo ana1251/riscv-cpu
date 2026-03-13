@@ -17,7 +17,7 @@ cpu_top cpu1 (.clk(clk), .reset(reset), .load_en(load_en), .load_data(load_data)
 always #5 clk = ~clk;
 
 initial begin
-    timeout = 2_000_000;
+    timeout = 10_000_000;
     stable = 0;
     reset = 1;
     load_en = 0;
@@ -35,7 +35,7 @@ initial begin
         @(posedge clk);
         timeout = timeout - 1;
         if (cpu1.IF_ID_instr == 32'h00000063)
-            stable = stable + 1;
+            stable <= stable + 1;
     end
     
     repeat (4) @(posedge clk);
@@ -51,8 +51,8 @@ initial begin
     @(posedge clk);
     
     if (instr_ret_ctr != 0 || cycle_ctr != 0) begin
-        assign cpi = $itor(cycle_ctr) / $itor(instr_ret_ctr);
-        assign ipc = 1 / cpi;
+        cpi <= $itor(cycle_ctr) / $itor(instr_ret_ctr);
+        ipc <= 1 / cpi;
         $display("\nCycle Count: %0d,    Instructions Retired: %0d", cycle_ctr, instr_ret_ctr);
         $display("Miss Counter: %0d,   Cache Stall Counter: %0d", miss_pulse_ctr, cache_stall_ctr);
         $display("Stall Count: %0d,     Branch Flush Count: %0d", stall_ctr, br_flush_ctr);
