@@ -45,7 +45,7 @@ alu num1 (.a(forward_a), .b(alu_b), .alu_sel(idex_alusel), .c(alu_out));
 
 assign pc_branch = idex_pc + idex_immb;
 assign pc_jal = idex_pc + idex_immj;
-assign pc_jalr = (forward_a + idex_imm32) & ~32'd1;
+assign pc_jalr = (forward_a + idex_imm32) & ~32'hfffffffe;
 
 assign beq = (forward_a == forward_rs2);
 assign blt = ($signed(forward_a) < $signed(forward_rs2));
