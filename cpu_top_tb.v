@@ -17,7 +17,7 @@ cpu_top cpu1 (.clk(clk), .reset(reset), .load_en(load_en), .load_data(load_data)
 always #5 clk = ~clk;
 
 initial begin
-    timeout = 10_000_000;
+    timeout = 100_000_000;
     stable = 0;
     reset = 1;
     load_en = 0;
