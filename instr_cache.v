@@ -18,7 +18,7 @@ reg valid [15:0];
 reg [31:0] miss_pc;
 reg [3:0] miss_index;
 reg [25:0] miss_tag;
-reg [1:0] miss_timer;
+reg [2:0] miss_timer;
 reg miss;
 wire [3:0] index;
 wire [25:0] pc_tag;
@@ -30,7 +30,7 @@ assign pc_tag = pc[31:6];
 assign hit = (valid[index] && tag[index] == pc_tag);
 assign mem_pc = miss ? miss_pc : pc;
 assign miss_pulse = (!miss && !hit);
-assign cache_stall = miss || miss_pulse;
+assign cache_stall = miss;
 assign instr_out = reset ? 32'h00000013 : (hit && !miss) ? data[index] : 32'h00000013;
 
 
@@ -49,9 +49,9 @@ always @(posedge clk) begin
         end
         
     end else begin    
-        if (miss) begin            
+        if (miss) begin   
             if (miss_timer != 0) begin
-                miss_timer <= miss_timer - 1'b1;
+                miss_timer <= miss_timer - 3'd1;
             end else begin
                 data[miss_index] <= mem_instr;
                 tag[miss_index] <= miss_tag;
@@ -63,8 +63,9 @@ always @(posedge clk) begin
             miss_pc <= pc;
             miss_index <= index;
             miss_tag <= pc_tag;
-            miss_timer <= 2'd3;
+            miss_timer <= 3'd5;
         end
     end
 end
+
 endmodule
