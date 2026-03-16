@@ -14,10 +14,11 @@ module instr_cache(
 reg [31:0] data [15:0];
 reg [25:0] tag [15:0];
 reg valid [15:0];
+
 reg [31:0] miss_pc;
 reg [3:0] miss_index;
 reg [25:0] miss_tag;
-reg [1:0] miss_timer = 2'd1;
+reg [1:0] miss_timer;
 reg miss;
 wire [3:0] index;
 wire [25:0] pc_tag;
@@ -50,7 +51,7 @@ always @(posedge clk) begin
     end else begin    
         if (miss) begin            
             if (miss_timer != 0) begin
-                miss_timer <= miss_timer - 1;
+                miss_timer <= miss_timer - 1'b1;
             end else begin
                 data[miss_index] <= mem_instr;
                 tag[miss_index] <= miss_tag;
