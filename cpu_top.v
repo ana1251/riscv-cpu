@@ -24,7 +24,7 @@ wire [3:0] alu_sel;
 wire [2:0] funct3;
 wire [1:0] alu_op;
 wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall, miss_hold;
-wire jal, jalr, redirect, load_hazard, miss_pulse, stall;
+wire jal, jalr, redirect, load_hazard, miss_pulse, stall, fetch_stall;
 
 // pipeline registers
 reg [31:0] IF_ID_instr, IF_ID_pc;
@@ -58,8 +58,8 @@ assign next_pc = branch_taken ? pc_branch : ID_EX_jal ? pc_jal : ID_EX_jalr ? pc
 assign load_hazard = ID_EX_mem_sel && (ID_EX_rd != 0) && ((ID_EX_rd == rs1) || (ID_EX_rd == rs2));
 assign redirect = ID_EX_valid && (branch_taken || ID_EX_jal || ID_EX_jalr);
 
-assign stall = cache_stall || load_hazard;
-assign miss_hold = cache_stall && miss_pulse;
+assign fetch_stall = cache_stall || miss_pulse;
+assign stall = fetch_stall && load_hazard;
 assign pc_stall = redirect ? next_pc : stall ? pc_reg : pc4_IF;
 
 
@@ -71,7 +71,7 @@ always @(posedge clk) begin
         IF_ID_valid <= 0;
     end else if (redirect) begin
         IF_ID_instr <= 32'h00000013;
-        IF_ID_pc <= IF_ID_pc;
+        IF_ID_pc <= pc_reg;
         IF_ID_valid <= 0;
     end else if (stall) begin
         IF_ID_instr <= IF_ID_instr;
@@ -108,28 +108,6 @@ always @(posedge clk) begin
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
-    end else if (cache_stall) begin
-        ID_EX_rs1 <= ID_EX_rs1;
-        ID_EX_rs2 <= ID_EX_rs2;
-        ID_EX_op1 <= ID_EX_op1;
-        ID_EX_op2 <= ID_EX_op2;
-        ID_EX_pc4 <= ID_EX_pc4;
-        ID_EX_rd <= ID_EX_rd;
-        ID_EX_reg_we <= ID_EX_reg_we;
-        ID_EX_mem_we <= ID_EX_mem_we;
-        ID_EX_mem_sel <= ID_EX_mem_sel;
-        ID_EX_op2_sel <= ID_EX_op2_sel;
-        ID_EX_imm32 <= ID_EX_imm32;
-        ID_EX_immb <= ID_EX_immb;
-        ID_EX_immj <= ID_EX_immj;
-        ID_EX_branch <= ID_EX_branch;
-        ID_EX_pc <= ID_EX_pc;
-        ID_EX_funct3 <= ID_EX_funct3;
-        ID_EX_aluop <= ID_EX_aluop;
-        ID_EX_funct7 <= ID_EX_funct7;
-        ID_EX_jal <= ID_EX_jal;
-        ID_EX_jalr <= ID_EX_jalr;
-        ID_EX_valid <= ID_EX_valid;
     end else if (redirect) begin
         ID_EX_rs1 <= 0;
         ID_EX_rs2 <= 0;
@@ -153,33 +131,55 @@ always @(posedge clk) begin
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
     end else if (load_hazard) begin
-        ID_EX_rs1 <= ID_EX_rs1;
-        ID_EX_rs2 <= ID_EX_rs2;
-        ID_EX_op1 <= ID_EX_op1;
-        ID_EX_op2 <= ID_EX_op2;
-        ID_EX_pc4 <= ID_EX_pc4;
-        ID_EX_rd <= ID_EX_rd;
-        ID_EX_reg_we <= ID_EX_reg_we;
-        ID_EX_mem_we <= ID_EX_mem_we;
-        ID_EX_mem_sel <= ID_EX_mem_sel;
-        ID_EX_op2_sel <= ID_EX_op2_sel;
-        ID_EX_imm32 <= ID_EX_imm32;
-        ID_EX_immb <= ID_EX_immb;
-        ID_EX_immj <= ID_EX_immj;
-        ID_EX_branch <= ID_EX_branch;
-        ID_EX_pc <= ID_EX_pc;
-        ID_EX_funct3 <= ID_EX_funct3;
-        ID_EX_aluop <= ID_EX_aluop;
-        ID_EX_funct7 <= ID_EX_funct7;
-        ID_EX_jal <= ID_EX_jal;
-        ID_EX_jalr <= ID_EX_jalr;
-        ID_EX_valid <= ID_EX_valid;
+        ID_EX_rs1 <= 0;
+        ID_EX_rs2 <= 0;
+        ID_EX_op1 <= 0;
+        ID_EX_op2 <= 0;
+        ID_EX_pc4 <= 0;
+        ID_EX_rd <= 0;
+        ID_EX_reg_we <= 0;
+        ID_EX_mem_we <= 0;
+        ID_EX_mem_sel <= 0;
+        ID_EX_op2_sel <= 0;
+        ID_EX_imm32 <= 0;
+        ID_EX_immb <= 0;
+        ID_EX_immj <= 0;
+        ID_EX_branch <= 0;
+        ID_EX_pc <= 0;
+        ID_EX_funct3 <= 0;
+        ID_EX_aluop <= 0;
+        ID_EX_funct7 <= 0;
+        ID_EX_jal <= 0;
+        ID_EX_jalr <= 0;
+        ID_EX_valid <= 0;
+    end else if (fetch_stall) begin
+        ID_EX_rs1 <= 0;
+        ID_EX_rs2 <= 0;
+        ID_EX_op1 <= 0;
+        ID_EX_op2 <= 0;
+        ID_EX_pc4 <= 0;
+        ID_EX_rd <= 0;
+        ID_EX_reg_we <= 0;
+        ID_EX_mem_we <= 0;
+        ID_EX_mem_sel <= 0;
+        ID_EX_op2_sel <= 0;
+        ID_EX_imm32 <= 0;
+        ID_EX_immb <= 0;
+        ID_EX_immj <= 0;
+        ID_EX_branch <= 0;
+        ID_EX_pc <= 0;
+        ID_EX_funct3 <= 0;
+        ID_EX_aluop <= 0;
+        ID_EX_funct7 <= 0;
+        ID_EX_jal <= 0;
+        ID_EX_jalr <= 0;
+        ID_EX_valid <= 0;
     end else begin
         ID_EX_rs1 <= rs1;
         ID_EX_rs2 <= rs2;
         ID_EX_op1 <= op1;
         ID_EX_op2 <= op2;
-        ID_EX_pc4 <= pc4_ID + 4;
+        ID_EX_pc4 <= pc4_ID;
         ID_EX_rd <= rd;
         ID_EX_reg_we <= reg_we;
         ID_EX_mem_we <= mem_we;
@@ -189,7 +189,7 @@ always @(posedge clk) begin
         ID_EX_imm32 <= imm32;
         ID_EX_immb <= imm_b;
         ID_EX_immj <= imm_j;
-        ID_EX_pc <= IF_ID_pc + 4;
+        ID_EX_pc <= IF_ID_pc;
         ID_EX_funct3 <= funct3;
         ID_EX_aluop <= alu_op;
         ID_EX_funct7 <= funct7;
@@ -215,7 +215,7 @@ always @(posedge clk) begin
         EX_MEM_bt <= 0;
         EX_MEM_wbval <= 0;
         EX_MEM_valid <= 0;
-    end else if (cache_stall) begin
+ /*   end else if (cache_stall) begin
         EX_MEM_rd <= EX_MEM_rd;
         EX_MEM_alu_out <= EX_MEM_alu_out;
         EX_MEM_reg_we <= EX_MEM_reg_we;
@@ -228,7 +228,7 @@ always @(posedge clk) begin
         EX_MEM_pcbr <= EX_MEM_pcbr;
         EX_MEM_bt <= EX_MEM_bt;
         EX_MEM_wbval <= EX_MEM_wbval;
-        EX_MEM_valid <= EX_MEM_valid;
+        EX_MEM_valid <= EX_MEM_valid; */
     end else begin
         EX_MEM_rd <= ID_EX_rd;
         EX_MEM_alu_out <= alu_out;
@@ -258,7 +258,7 @@ always @(posedge clk) begin
         MEM_WB_jal <= 0;
         MEM_WB_jalr <= 0;
         MEM_WB_valid <= 0;
-    end else if (cache_stall) begin
+  /*  end else if (cache_stall) begin
         MEM_WB_alu_out <= MEM_WB_alu_out;
         MEM_WB_mem_rd <= MEM_WB_mem_rd;
         MEM_WB_pc4 <= MEM_WB_pc4;
@@ -267,7 +267,7 @@ always @(posedge clk) begin
         MEM_WB_mem_sel <= MEM_WB_mem_sel;
         MEM_WB_jal <= MEM_WB_jal;
         MEM_WB_jalr <= MEM_WB_jalr;
-        MEM_WB_valid <= MEM_WB_valid;
+        MEM_WB_valid <= MEM_WB_valid; */
     end else begin
         MEM_WB_alu_out <= EX_MEM_alu_out;
         MEM_WB_mem_rd <= mem_rd;
@@ -335,24 +335,25 @@ always @(posedge clk) begin
         miss_pulse_ctr <= 0;
         cache_stall_ctr <= 0;
     end else begin
-        if (MEM_WB_valid)
+        if (MEM_WB_valid && !cache_stall)
             instr_ret_ctr <= instr_ret_ctr + 1;
-        if (load_hazard)
+        if (load_hazard && !cache_stall)
             stall_ctr <= stall_ctr + 1;
-        if (ID_EX_valid && ID_EX_branch && branch_taken)
+        if (ID_EX_valid && ID_EX_branch && branch_taken && !cache_stall)
             br_flush_ctr <= br_flush_ctr + 1;
-        if (ID_EX_valid && redirect)
+        if (ID_EX_valid && redirect && !cache_stall)
             flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (cache_instr != 32'h00000013));
         if (miss_pulse)
             miss_pulse_ctr <= miss_pulse_ctr + 1;
         if (cache_stall)
             cache_stall_ctr <= cache_stall_ctr + 1;
     end
-    $display("pc=%0d IF=%h IF_valid=%b ID_EX_valid=%b redirect=%b x1=%0d x2=%0d x4=%0d x5=%0d x6=%0d",
-         pc_reg, IF_ID_instr, IF_ID_valid, ID_EX_valid, redirect,
-         id1.dut.regs[1], id1.regs[2], id1.dut.regs[4], id1.dut.regs[5], id1.dut.regs[6]);
+    $display("pc=%0d next_pc=%0d pc_stall=%0d IF=%h IF_valid=%b cache_stall=%b miss_pulse=%b",
+             pc_reg, next_pc, pc_stall, IF_ID_instr, IF_ID_valid, cache_stall, miss_pulse);
+    $display("ID_EX: valid=%b jal=%b jalr=%b branch=%b branch_taken=%b ID_EX_pc=%0d ID_EX_pc4=%0d",
+             ID_EX_valid, ID_EX_jal, ID_EX_jalr, ID_EX_branch, branch_taken, ID_EX_pc, ID_EX_pc4);
+    $display("regs x1=%0d x2=%0d x4=%0d x5=%0d x6=%0d",
+             id1.dut.regs[1], id1.dut.regs[2], id1.dut.regs[4], id1.dut.regs[5], id1.dut.regs[6]);
 end
 
 endmodule
-
-
