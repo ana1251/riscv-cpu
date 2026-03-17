@@ -24,7 +24,7 @@ wire [4:0] rs1, rs2, rd, WB_reg_sel;
 wire [3:0] alu_sel;
 wire [2:0] funct3;
 wire [1:0] alu_op;
-wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall;
+wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall, instr_valid;
 wire jal, jalr, redirect, load_hazard, miss_pulse, stall, fetch_stall;
 
 // pipeline registers
@@ -42,7 +42,7 @@ reg [31:0] EX_MEM_alu_out, EX_MEM_sd, EX_MEM_pc4, EX_MEM_pcbr, EX_MEM_wbval;
 reg [4:0] EX_MEM_rd;
 reg EX_MEM_reg_we, EX_MEM_mem_sel, EX_MEM_mem_we, EX_MEM_jal, EX_MEM_jalr, EX_MEM_bt, EX_MEM_valid;
 
-reg [31:0] MEM_WB_alu_out, MEM_WB_mem_rd, MEM_WB_pc4;
+reg [31:0] MEM_WB_alu_out, MEM_WB_mem_rd, MEM_WB_pc4, MEM_WB_wbval;
 reg [4:0] MEM_WB_rd;
 reg MEM_WB_reg_we, MEM_WB_mem_sel, MEM_WB_jal, MEM_WB_jalr, MEM_WB_valid;
 
@@ -53,7 +53,9 @@ assign imm_j = {{11{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[19:12], IF_I
 
 assign pc4_IF = pc_reg + 4;
 assign pc4_ID = IF_ID_pc + 4;
-assign next_pc = branch_taken ? pc_branch : ID_EX_jal ? pc_jal : ID_EX_jalr ? pc_jalr : pc4_IF;
+assign next_pc = (ID_EX_valid && branch_taken) ? pc_branch : 
+                 (ID_EX_valid && ID_EX_jal) ? pc_jal : 
+                 (ID_EX_valid && ID_EX_jalr) ? pc_jalr : pc4_IF;
 assign stop = ID_EX_valid && ID_EX_branch && branch_taken && (pc_branch == ID_EX_pc);
 
 // Hazards          
@@ -73,16 +75,20 @@ always @(posedge clk) begin
         IF_ID_valid <= 0;
     end else if (redirect) begin
         IF_ID_instr <= 32'h00000013;
-        IF_ID_pc <= pc_reg;
+        IF_ID_pc <= 0;
         IF_ID_valid <= 0;
-    end else if (stall) begin
+    end else if (load_hazard) begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= IF_ID_valid;
-    end else begin
+    end else if (instr_valid) begin
         IF_ID_instr <= cache_instr;
         IF_ID_pc <= pc_reg;
-        IF_ID_valid <= 1;
+        IF_ID_valid <= 1;    
+    end else begin
+        IF_ID_instr <= IF_ID_instr;
+        IF_ID_pc <= IF_ID_pc;
+        IF_ID_valid <= 0;
     end
 end
 
@@ -154,7 +160,7 @@ always @(posedge clk) begin
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
-    end else if (cache_stall) begin
+  /*  end else if (fetch_stall && !IF_ID_valid) begin
         ID_EX_rs1 <= 0;
         ID_EX_rs2 <= 0;
         ID_EX_op1 <= 0;
@@ -175,7 +181,7 @@ always @(posedge clk) begin
         ID_EX_funct7 <= 0;
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
-        ID_EX_valid <= 0; 
+        ID_EX_valid <= 0; */
     end else begin
         ID_EX_rs1 <= rs1;
         ID_EX_rs2 <= rs2;
@@ -183,20 +189,20 @@ always @(posedge clk) begin
         ID_EX_op2 <= op2;
         ID_EX_pc4 <= pc4_ID;
         ID_EX_rd <= rd;
-        ID_EX_reg_we <= reg_we;
-        ID_EX_mem_we <= mem_we;
-        ID_EX_mem_sel <= mem_sel;
-        ID_EX_op2_sel <= op2_sel;
-        ID_EX_branch <= branch;
+        ID_EX_reg_we <= IF_ID_valid ? reg_we : 0;
+        ID_EX_mem_we <= IF_ID_valid ? mem_we : 0;
+        ID_EX_mem_sel <= IF_ID_valid ? mem_sel : 0;
+        ID_EX_op2_sel <= IF_ID_valid ? op2_sel : 0;
+        ID_EX_branch <= IF_ID_valid ? branch : 0;
         ID_EX_imm32 <= imm32;
         ID_EX_immb <= imm_b;
         ID_EX_immj <= imm_j;
         ID_EX_pc <= IF_ID_pc;
-        ID_EX_funct3 <= funct3;
-        ID_EX_aluop <= alu_op;
-        ID_EX_funct7 <= funct7;
-        ID_EX_jal <= jal;
-        ID_EX_jalr <= jalr; 
+        ID_EX_funct3 <= IF_ID_valid ? funct3 : 0;
+        ID_EX_aluop <= IF_ID_valid ? alu_op : 0;
+        ID_EX_funct7 <= IF_ID_valid ? funct7 : 0;
+        ID_EX_jal <= IF_ID_valid ? jal : 0;
+        ID_EX_jalr <= IF_ID_valid ? jalr : 0;
         ID_EX_valid <= IF_ID_valid;
     end
 end
@@ -246,6 +252,7 @@ always @(posedge clk) begin
         MEM_WB_jal <= 0;
         MEM_WB_jalr <= 0;
         MEM_WB_valid <= 0;
+        MEM_WB_wbval <= 0;
     end else begin
         MEM_WB_alu_out <= EX_MEM_alu_out;
         MEM_WB_mem_rd <= mem_rd;
@@ -256,13 +263,12 @@ always @(posedge clk) begin
         MEM_WB_jal <= EX_MEM_jal;
         MEM_WB_jalr <= EX_MEM_jalr;
         MEM_WB_valid <= EX_MEM_valid;
+        MEM_WB_wbval <= EX_MEM_wbval;
     end
 end
 
 // WB Stage
-assign WB_data = (load_en == 1) ? load_data :
-                 (MEM_WB_mem_sel == 1) ? MEM_WB_mem_rd :
-                 (MEM_WB_jal || MEM_WB_jalr) ? MEM_WB_pc4 : MEM_WB_alu_out;
+assign WB_data = (load_en == 1) ? load_data : (MEM_WB_mem_sel == 1) ? MEM_WB_mem_rd : MEM_WB_wbval;
 assign WB_reg_sel = (load_en == 1) ? load_rd : MEM_WB_rd;
 assign WB_we_sel = (load_en == 1) ? 1 : MEM_WB_reg_we;
 
@@ -273,7 +279,7 @@ pc p2 (.clk(clk), .reset(reset), .next_pc(pc_stall), .pc_reg(pc_reg));
 instr_memory m2 (.pc_address(mem_pc), .instruction(mem_instr));
 
 instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .instr_out(cache_instr),
-                .cache_stall(cache_stall), .mem_pc(mem_pc), .miss_pulse(miss_pulse));
+                .instr_valid(instr_valid), .cache_stall(cache_stall), .mem_pc(mem_pc), .miss_pulse(miss_pulse));
 
 decoder d2 (.instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .rd(rd), .reg_we(reg_we),
             .mem_we(mem_we), .op2_sel(op2_sel), .is_sw(is_sw), .mem_sel(mem_sel), .funct3(funct3),
@@ -326,11 +332,6 @@ always @(posedge clk) begin
         if (fetch_stall)
             cache_stall_ctr <= cache_stall_ctr + 1;
     end
-end
-
-always @(posedge clk) begin
-    if (MEM_WB_valid)
-        $display("RETIRE: pc4=%0d rd=%0d wb=%0d", MEM_WB_pc4, MEM_WB_rd, WB_data);
 end
 
 endmodule
