@@ -60,7 +60,6 @@ endmodule
     mem[11]= 32'h00028067; // jalr x0, 0(x5)
     mem[12]= 32'h00700313; // addi x6, x0, 7
     mem[13]= 32'h00000063; // beq x0, x0, 0 (finish)
-    mem[14]= 32'h00000063; // beq x0, x0, 0 (finish)
 
 // Memory Test
     mem[0] = 32'h00000093; // addi x1, x0, 0
