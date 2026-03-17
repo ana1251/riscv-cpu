@@ -88,7 +88,7 @@ always @(posedge clk) begin
     end else begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
-        IF_ID_valid <= 0;
+        IF_ID_valid <= 1'b0;
     end
 end
 
@@ -160,28 +160,6 @@ always @(posedge clk) begin
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
-  /*  end else if (fetch_stall && !IF_ID_valid) begin
-        ID_EX_rs1 <= 0;
-        ID_EX_rs2 <= 0;
-        ID_EX_op1 <= 0;
-        ID_EX_op2 <= 0;
-        ID_EX_pc4 <= 0;
-        ID_EX_rd <= 0;
-        ID_EX_reg_we <= 0;
-        ID_EX_mem_we <= 0;
-        ID_EX_mem_sel <= 0;
-        ID_EX_op2_sel <= 0;
-        ID_EX_imm32 <= 0;
-        ID_EX_immb <= 0;
-        ID_EX_immj <= 0;
-        ID_EX_branch <= 0;
-        ID_EX_pc <= 0;
-        ID_EX_funct3 <= 0;
-        ID_EX_aluop <= 0;
-        ID_EX_funct7 <= 0;
-        ID_EX_jal <= 0;
-        ID_EX_jalr <= 0;
-        ID_EX_valid <= 0; */
     end else begin
         ID_EX_rs1 <= rs1;
         ID_EX_rs2 <= rs2;
