@@ -15,7 +15,7 @@ cpu_top cpu1 (.clk(clk), .reset(reset), .load_en(load_en), .load_data(load_data)
               .br_flush_ctr(br_flush_ctr), .flush_instr_ctr(flush_instr_ctr), .miss_pulse_ctr(miss_pulse_ctr),
               .cache_stall_ctr(cache_stall_ctr));
 
-always #5 clk = ~clk;
+always #1 clk = ~clk;
 
 initial begin
     timeout = 2_000_000;
@@ -26,9 +26,8 @@ initial begin
     clk = 0;
     
     @(posedge clk);
-    #1;
     reset = 1;
-    #50;
+    #5;
     reset = 0;
     
     while (!stop && timeout > 0) begin
@@ -36,7 +35,7 @@ initial begin
         timeout = timeout - 1;
     end
     
-    @(posedge clk);
+    repeat (4) @(posedge clk);
 
   // ALU Tests 
     check_reg(14, 32'h7FFFFFFE);
