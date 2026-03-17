@@ -6,6 +6,7 @@ module cpu_top(
     input load_en,
     input [31:0] load_data,
     input [4:0] load_rd,
+    input [1:0] program_sel,
     output stop,
     output reg [31:0] cycle_ctr,
     output reg [31:0] instr_ret_ctr,
@@ -232,7 +233,7 @@ assign WB_we_sel = (load_en == 1) ? 1 : MEM_WB_reg_we;
 // Functions called
 pc p2 (.clk(clk), .reset(reset), .next_pc(pc_stall), .pc_reg(pc_reg));
 
-instr_memory m2 (.pc_address(mem_pc), .instruction(mem_instr));
+instr_memory m2 (.reset(reset), .pc_address(mem_pc), .program_sel(program_sel), .instruction(mem_instr));
 
 instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .instr_out(cache_instr),
                 .instr_valid(instr_valid), .cache_stall(cache_stall), .mem_pc(mem_pc), .miss_pulse(miss_pulse));
