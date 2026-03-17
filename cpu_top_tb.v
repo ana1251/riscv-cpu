@@ -5,31 +5,32 @@ module cpu_top_tb();
 reg clk, reset, load_en;
 reg [31:0] load_data;
 reg [4:0] load_rd;
+reg [1:0] program_sel;
 wire stop;
 wire [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr, flush_instr_ctr, miss_pulse_ctr, cache_stall_ctr;
 real cpi, ipc;
 integer timeout;
 
 cpu_top cpu1 (.clk(clk), .reset(reset), .load_en(load_en), .load_data(load_data), .load_rd(load_rd),
-              .stop(stop), .cycle_ctr(cycle_ctr), .instr_ret_ctr(instr_ret_ctr), .stall_ctr(stall_ctr),
-              .br_flush_ctr(br_flush_ctr), .flush_instr_ctr(flush_instr_ctr), .miss_pulse_ctr(miss_pulse_ctr),
-              .cache_stall_ctr(cache_stall_ctr));
+              .program_sel(program_sel), .stop(stop), .cycle_ctr(cycle_ctr), .instr_ret_ctr(instr_ret_ctr),
+              .stall_ctr(stall_ctr), .br_flush_ctr(br_flush_ctr), .flush_instr_ctr(flush_instr_ctr),
+              .miss_pulse_ctr(miss_pulse_ctr), .cache_stall_ctr(cache_stall_ctr));
 
 always #1 clk = ~clk;
 
 initial begin
     timeout = 2_000_000;
-    reset = 1;
     load_en = 0;
     load_data = 0;
     load_rd = 0;
     clk = 0;
+    program_sel = 2'b10;
     
-    @(posedge clk);
+    #2;
     reset = 1;
-    #5;
+    #2;
     reset = 0;
-    
+        
     while (!stop && timeout > 0) begin
         @(posedge clk);
         timeout = timeout - 1;
@@ -37,12 +38,29 @@ initial begin
     
     repeat (4) @(posedge clk);
 
-  // ALU Tests 
-    check_reg(14, 32'h7FFFFFFE);
-    check_reg(15, 32'hFFFFFFFE);
-    check_reg(7, 32'd1);
-    check_reg(8, 32'd0);   
-    check_reg(19, 32'd1);
+    case (program_sel)
+        2'b00:  begin
+                check_reg(14, 32'h7FFFFFFE);
+                check_reg(15, 32'hFFFFFFFE);
+                check_reg(7, 32'd1);
+                check_reg(8, 32'd0);   
+                check_reg(19, 32'd1);
+                end
+        2'b01:  begin
+                check_reg(2, 32'd0);
+                check_reg(1, 32'd28);
+                check_reg(4, 32'd10);
+                check_reg(6, 32'd7);
+                end
+        2'b10:  begin
+                check_reg(4, 32'd8);
+                check_reg(5, 32'd9); 
+                check_reg(6, 32'd7);
+                check_mem(0, 32'h00000008);
+                check_mem(1, 32'h00000009);
+                end
+        default: begin end
+    endcase 
     
     $display("PASS: values are correct.");
     
@@ -103,22 +121,3 @@ endtask
 
 
 endmodule
-
-
-/*
-
- 
-  // Control Tests  
-    check_reg(2, 32'd0);
-    check_reg(1, 32'd28);
-    check_reg(4, 32'd10);
-    check_reg(6, 32'd7);
-  
-   // Memory Tests
-    check_reg(4, 32'd8);
-    check_reg(5, 32'd9); 
-    check_reg(6, 32'd7);
-    check_mem(0, 32'h00000008);
-    check_mem(1, 32'h00000009); 
-
-*/
