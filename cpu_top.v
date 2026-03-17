@@ -116,29 +116,7 @@ always @(posedge clk) begin
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
-    end else if (redirect) begin
-        ID_EX_rs1 <= 0;
-        ID_EX_rs2 <= 0;
-        ID_EX_op1 <= 0;
-        ID_EX_op2 <= 0;
-        ID_EX_pc4 <= 0;
-        ID_EX_rd <= 0;
-        ID_EX_reg_we <= 0;
-        ID_EX_mem_we <= 0;
-        ID_EX_mem_sel <= 0;
-        ID_EX_op2_sel <= 0;
-        ID_EX_imm32 <= 0;
-        ID_EX_immb <= 0;
-        ID_EX_immj <= 0;
-        ID_EX_branch <= 0;
-        ID_EX_pc <= 0;
-        ID_EX_funct3 <= 0;
-        ID_EX_aluop <= 0;
-        ID_EX_funct7 <= 0;
-        ID_EX_jal <= 0;
-        ID_EX_jalr <= 0;
-        ID_EX_valid <= 0;
-    end else if (load_hazard) begin
+    end else if (redirect || load_hazard) begin
         ID_EX_rs1 <= 0;
         ID_EX_rs2 <= 0;
         ID_EX_op1 <= 0;
@@ -166,22 +144,22 @@ always @(posedge clk) begin
         ID_EX_op1 <= op1;
         ID_EX_op2 <= op2;
         ID_EX_pc4 <= pc4_ID;
-        ID_EX_rd <= rd;
-        ID_EX_reg_we <= IF_ID_valid ? reg_we : 0;
-        ID_EX_mem_we <= IF_ID_valid ? mem_we : 0;
-        ID_EX_mem_sel <= IF_ID_valid ? mem_sel : 0;
-        ID_EX_op2_sel <= IF_ID_valid ? op2_sel : 0;
-        ID_EX_branch <= IF_ID_valid ? branch : 0;
+        ID_EX_rd <= rd; 
         ID_EX_imm32 <= imm32;
         ID_EX_immb <= imm_b;
         ID_EX_immj <= imm_j;
         ID_EX_pc <= IF_ID_pc;
+        ID_EX_valid <= IF_ID_valid;
         ID_EX_funct3 <= IF_ID_valid ? funct3 : 0;
         ID_EX_aluop <= IF_ID_valid ? alu_op : 0;
         ID_EX_funct7 <= IF_ID_valid ? funct7 : 0;
         ID_EX_jal <= IF_ID_valid ? jal : 0;
         ID_EX_jalr <= IF_ID_valid ? jalr : 0;
-        ID_EX_valid <= IF_ID_valid;
+        ID_EX_reg_we <= IF_ID_valid ? reg_we : 0;
+        ID_EX_mem_we <= IF_ID_valid ? mem_we : 0;
+        ID_EX_mem_sel <= IF_ID_valid ? mem_sel : 0;
+        ID_EX_op2_sel <= IF_ID_valid ? op2_sel : 0;
+        ID_EX_branch <= IF_ID_valid ? branch : 0;
     end
 end
 
