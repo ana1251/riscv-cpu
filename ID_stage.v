@@ -2,6 +2,7 @@
 
 module ID_stage(
     input clk,
+    input reset,
     input [31:0] instruction,
     input [4:0] rs1,
     input [4:0] rs2,
@@ -24,7 +25,7 @@ assign imm12 = (is_sw == 1) ? imm_s : imm_l;
 assign imm32 = {{20{imm12[11]}}, imm12};
 
 regfile dut (
-    .clk(clk), .write_enable(WB_we_sel), .read_ad1(rs1), .read_ad2(rs2),
+    .clk(clk), .reset(reset), .write_enable(WB_we_sel), .read_ad1(rs1), .read_ad2(rs2),
     .write_ad(WB_reg_sel), .write_data(WB_data), .rd1(op1_f), .rd2(op2_f));
    
 assign op1 = (WB_we_sel &&(WB_reg_sel != 0) && (WB_reg_sel == rs1)) ? WB_data : op1_f;
