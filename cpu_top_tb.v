@@ -2,30 +2,24 @@
 
 module cpu_top_tb();
 
-reg clk, reset, load_en;
-reg [31:0] load_data;
-reg [4:0] load_rd, reg_view_sel;
+reg clk, reset;
+reg [4:0] reg_view_sel;
 reg [1:0] program_sel;
-wire stop;
 wire [31:0] reg_view_data;
-wire [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr, flush_instr_ctr, miss_pulse_ctr, cache_stall_ctr;
+wire stop;
 real cpi, ipc;
 integer timeout;
 
-cpu_top cpu1 (.clk(clk), .reset(reset), .load_en(load_en), .load_data(load_data), .load_rd(load_rd),
+cpu_top cpu1 (.clk(clk), .reset(reset),
               .program_sel(program_sel), .reg_view_sel(reg_view_sel), 
-              .stop(stop), .reg_view_data(reg_view_data), .cycle_ctr(cycle_ctr), .instr_ret_ctr(instr_ret_ctr),
-              .stall_ctr(stall_ctr), .br_flush_ctr(br_flush_ctr), .flush_instr_ctr(flush_instr_ctr),
-              .miss_pulse_ctr(miss_pulse_ctr), .cache_stall_ctr(cache_stall_ctr));
+              .stop(stop), .reg_view_data(reg_view_data));
 
 always #1 clk = ~clk;
 
 initial begin
     timeout = 2_000_000;
-    load_en = 0;
-    load_data = 0;
-    load_rd = 0;
     clk = 0;
+    program_sel = 2'b10;
     
     #2;
     reset = 1;
@@ -65,21 +59,19 @@ initial begin
     
     $display("PASS: values are correct.");
     
-    @(posedge clk);
-    
-    if (instr_ret_ctr != 0 || cycle_ctr != 0) begin
-        cpi = $itor(cycle_ctr) / $itor(instr_ret_ctr);
+    if (cpu1.instr_ret_ctr != 0 || cpu1.cycle_ctr != 0) begin
+        cpi = $itor(cpu1.cycle_ctr) / $itor(cpu1.instr_ret_ctr);
         ipc = 1.0 / cpi;
-        $display("\nCycle Count: %0d,    Instructions Retired: %0d", cycle_ctr, instr_ret_ctr);
-        $display("Miss Counter: %0d,   Cache Stall Counter: %0d", miss_pulse_ctr, cache_stall_ctr);
-        $display("Stall Count: %0d,     Branch Flush Count: %0d", stall_ctr, br_flush_ctr);
-        $display("Flushed Instructions Count: %0d", flush_instr_ctr);
+        $display("\nCycle Count: %0d,    Instructions Retired: %0d", cpu1.cycle_ctr, cpu1.instr_ret_ctr);
+        $display("Miss Counter: %0d,   Cache Stall Counter: %0d", cpu1.miss_pulse_ctr, cpu1.cache_stall_ctr);
+        $display("Stall Count: %0d,     Branch Flush Count: %0d", cpu1.stall_ctr, cpu1.br_flush_ctr);
+        $display("Flushed Instructions Count: %0d", cpu1.flush_instr_ctr);
         $display("CPI: %0f", cpi);
         $display("IPC: %0f\n", ipc);
     end else begin
         $display("Could not calculate CPI/IPC");
-    end 
-
+    end
+    
     $finish;
 
 end
