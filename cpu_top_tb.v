@@ -4,15 +4,17 @@ module cpu_top_tb();
 
 reg clk, reset, load_en;
 reg [31:0] load_data;
-reg [4:0] load_rd;
+reg [4:0] load_rd, reg_view_sel;
 reg [1:0] program_sel;
 wire stop;
+wire [31:0] reg_view_data;
 wire [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr, flush_instr_ctr, miss_pulse_ctr, cache_stall_ctr;
 real cpi, ipc;
 integer timeout;
 
 cpu_top cpu1 (.clk(clk), .reset(reset), .load_en(load_en), .load_data(load_data), .load_rd(load_rd),
-              .program_sel(program_sel), .stop(stop), .cycle_ctr(cycle_ctr), .instr_ret_ctr(instr_ret_ctr),
+              .program_sel(program_sel), .reg_view_sel(reg_view_sel), 
+              .stop(stop), .reg_view_data(reg_view_data), .cycle_ctr(cycle_ctr), .instr_ret_ctr(instr_ret_ctr),
               .stall_ctr(stall_ctr), .br_flush_ctr(br_flush_ctr), .flush_instr_ctr(flush_instr_ctr),
               .miss_pulse_ctr(miss_pulse_ctr), .cache_stall_ctr(cache_stall_ctr));
 
@@ -24,7 +26,6 @@ initial begin
     load_data = 0;
     load_rd = 0;
     clk = 0;
-    program_sel = 2'b10;
     
     #2;
     reset = 1;
@@ -118,6 +119,5 @@ begin
     end
 end
 endtask
-
 
 endmodule
