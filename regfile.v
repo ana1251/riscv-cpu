@@ -4,6 +4,7 @@
 
 module regfile(
     input clk,
+    input reset,
     input write_enable,      //read (1) or write (0)
     input [4:0] read_ad1,    //select which register to read for first operand
     input [4:0] read_ad2,    //select which register to read for second operand
@@ -16,17 +17,17 @@ module regfile(
 reg [31:0] regs [31:0];
 integer i;
 
- initial begin
-    for (i = 0; i < 32; i = i+1)
-        regs[i] = 0;
-    end  
-
 assign rd1 = (read_ad1 == 0) ? 32'b0 : regs[read_ad1];
 assign rd2 = (read_ad2 == 0) ? 32'b0 : regs[read_ad2];
 
 always @ (posedge clk) begin
-    if((write_enable != 0) && (write_ad != 0))
-       regs[write_ad] <= write_data;
+    if (reset) begin
+        for (i = 0; i < 32; i = i+1)
+            regs[i] = 0;
+    end else begin
+        if((write_enable != 0) && (write_ad != 0))
+            regs[write_ad] <= write_data;
+    end
 end
 
 endmodule
