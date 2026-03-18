@@ -3,24 +3,16 @@
 module cpu_top(
     input clk,
     input reset,
-    input load_en,
-    input [31:0] load_data,
-    input [4:0] load_rd,
     input [1:0] program_sel,
     input [4:0] reg_view_sel,
-    output stop,
     output [31:0] reg_view_data,
-    output reg [31:0] cycle_ctr,
-    output reg [31:0] instr_ret_ctr,
-    output reg [31:0] stall_ctr,
-    output reg [31:0] br_flush_ctr,
-    output reg [31:0] flush_instr_ctr,
-    output reg [31:0] miss_pulse_ctr,
-    output reg [31:0] cache_stall_ctr
+    output stop
 );
 
-wire [31:0] cache_instr, mem_pc;
-wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr;
+reg [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr, flush_instr_ctr,
+            miss_pulse_ctr, cache_stall_ctr;
+wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr, 
+            cache_instr, mem_pc;
 wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall;
 wire [6:0] funct7;
 wire [4:0] rs1, rs2, rd, WB_reg_sel;
@@ -29,6 +21,7 @@ wire [2:0] funct3;
 wire [1:0] alu_op;
 wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall, instr_valid;
 wire jal, jalr, redirect, load_hazard, miss_pulse, stall, fetch_stall;
+
 
 // pipeline registers
 reg [31:0] IF_ID_instr, IF_ID_pc;
@@ -230,15 +223,15 @@ always @(posedge clk) begin
 end
 
 // WB Stage
-assign WB_data = (load_en == 1) ? load_data : (MEM_WB_mem_sel == 1) ? MEM_WB_mem_rd : MEM_WB_wbval;
-assign WB_reg_sel = (load_en == 1) ? load_rd : MEM_WB_rd;
-assign WB_we_sel = (load_en == 1) ? 1 : MEM_WB_reg_we;
+assign WB_data = (MEM_WB_mem_sel == 1) ? MEM_WB_mem_rd : MEM_WB_wbval;
+assign WB_reg_sel = MEM_WB_rd;
+assign WB_we_sel = MEM_WB_reg_we;
 
 
 // Functions called
 pc p2 (.clk(clk), .reset(reset), .next_pc(pc_stall), .pc_reg(pc_reg));
 
-instr_memory m2 (.reset(reset), .pc_address(mem_pc), .program_sel(program_sel), .instruction(mem_instr));
+instr_memory m2 (.clk(clk), .reset(reset), .pc_address(mem_pc), .program_sel(program_sel), .instruction(mem_instr));
 
 instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .instr_out(cache_instr),
                 .instr_valid(instr_valid), .cache_stall(cache_stall), .mem_pc(mem_pc), .miss_pulse(miss_pulse));
@@ -246,7 +239,7 @@ instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .i
 decoder d2 (.instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .rd(rd), .reg_we(reg_we),
             .mem_we(mem_we), .op2_sel(op2_sel), .is_sw(is_sw), .mem_sel(mem_sel), .funct3(funct3),
             .funct7(funct7), .alu_op(alu_op), .branch(branch), .jal(jal), .jalr(jalr));                
-ID_stage id1 (.clk(clk), .instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .WB_reg_sel(WB_reg_sel),
+ID_stage id1 (.clk(clk), .reset(reset), .instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .WB_reg_sel(WB_reg_sel),
               .WB_data(WB_data), .op2_sel(op2_sel), .WB_we_sel(WB_we_sel), .is_sw(is_sw), .op1(op1),
               .op2(op2), .imm32(imm32));
 
