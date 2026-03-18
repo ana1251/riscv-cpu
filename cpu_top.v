@@ -7,7 +7,9 @@ module cpu_top(
     input [31:0] load_data,
     input [4:0] load_rd,
     input [1:0] program_sel,
+    input [4:0] reg_view_sel,
     output stop,
+    output [31:0] reg_view_data,
     output reg [31:0] cycle_ctr,
     output reg [31:0] instr_ret_ctr,
     output reg [31:0] stall_ctr,
@@ -47,7 +49,10 @@ reg [31:0] MEM_WB_alu_out, MEM_WB_mem_rd, MEM_WB_pc4, MEM_WB_wbval;
 reg [4:0] MEM_WB_rd;
 reg MEM_WB_reg_we, MEM_WB_mem_sel, MEM_WB_jal, MEM_WB_jalr, MEM_WB_valid;
 
+// FPGA register view selection + data
+assign reg_view_data = id1.dut.regs[reg_view_sel];
 
+// immediate calculations
 assign imm_b = {{19{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[7], IF_ID_instr[30:25], IF_ID_instr[11:8], 1'b0};
 assign imm_i = {{20{IF_ID_instr[31]}}, IF_ID_instr[31:20]};
 assign imm_j = {{11{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[19:12], IF_ID_instr[20], IF_ID_instr[30:21], 1'b0};
