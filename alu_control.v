@@ -33,7 +33,7 @@ always @(*) begin
                     10'b0000000011: alu_sel = `ALU_SLTU;
                     10'b0000000001: alu_sel = `ALU_SLL;
                     10'b0000000101: alu_sel = `ALU_SRL;
-                    10'b010000101: alu_sel = `ALU_SRA;
+                    10'b0100000101: alu_sel = `ALU_SRA;
                     default: alu_sel = 0;
                endcase
                end
