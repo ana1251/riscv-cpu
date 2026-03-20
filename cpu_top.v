@@ -10,7 +10,8 @@ module cpu_top(
     output reg [31:0] instr_ret_ctr,
     output reg [31:0] stall_ctr,
     output reg [31:0] br_flush_ctr,
-    output reg [31:0] flush_instr_ctr
+    output reg [31:0] flush_instr_ctr,
+    output stop
 );
 
 wire [31:0] instruction, op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data;
@@ -51,6 +52,8 @@ assign pc4_IF = pc_reg + 4;
 assign pc4_ID = IF_ID_pc + 4;
 assign next_pc = branch_taken ? pc_branch : (ID_EX_jal ? pc_jal : ID_EX_jalr ? pc_jalr : pc4_IF);
 assign pc_stall = redirect ? next_pc : load_hazard ? pc_reg : next_pc;
+
+assign stop = ID_EX_valid && ID_EX_branch && branch_taken && (pc_branch == ID_EX_pc);
 
 // Hazards          
 assign load_hazard = ID_EX_mem_sel && (ID_EX_rd != 0) && ((ID_EX_rd == rs1) || (ID_EX_rd == rs2));
