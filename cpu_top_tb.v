@@ -5,52 +5,50 @@ module cpu_top_tb();
 reg clk, reset, load_en;
 reg [31:0] load_data;
 reg [4:0] load_rd;
-wire [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr;
+wire stop;
 wire [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr, flush_instr_ctr;
 real cpi, ipc;
 integer timeout, stable;
 
 cpu_top cpu1 (.clk(clk), .reset(reset), .load_en(load_en), .load_data(load_data), .load_rd(load_rd),
               .cycle_ctr(cycle_ctr), .instr_ret_ctr(instr_ret_ctr), .stall_ctr(stall_ctr),
-              .br_flush_ctr(br_flush_ctr), .flush_instr_ctr(flush_instr_ctr));
+              .br_flush_ctr(br_flush_ctr), .flush_instr_ctr(flush_instr_ctr), .stop(stop));
 
-always #5 clk = ~clk;
+always #1 clk = ~clk;
 
 initial begin
+    clk = 0;
     timeout = 2_000_000;
-    stable = 0;
-    reset = 1;
     load_en = 0;
     load_data = 0;
+    load_rd = 0;
+    
     reset = 1;
-    #50;
+    #5;
     reset = 0;
+    
     repeat (50) @(posedge clk);
 
-    #100;
-    while (stable < 1 && timeout > 0) begin
+    while (!stop && timeout > 0) begin
         @(posedge clk);
         timeout = timeout - 1;
-        if (cpu1.IF_ID_instr == 32'h00000063)
-            stable = stable + 1;
     end
     
     repeat (4) @(posedge clk);
 
-   // Repeated loop test
+   // Loop test
     check_reg(1, 32'd5050);
     check_reg(2, 32'd0);
     check_mem(0, 32'd5050); 
      
     $display("PASS: values are correct.");
     
-    if (cpu1.instr_ret_ctr != 0 || cpu1.cycle_ctr != 0) begin
-        cpi = $itor(cpu1.cycle_ctr) / $itor(cpu1.instr_ret_ctr);
+    if (instr_ret_ctr != 0 || cycle_ctr != 0) begin
+        cpi = $itor(cycle_ctr) / $itor(instr_ret_ctr);
         ipc = 1.0 / cpi;
-        $display("\nCycle Count: %0d,    Instructions Retired: %0d", cpu1.cycle_ctr, cpu1.instr_ret_ctr);
-        $display("Miss Counter: %0d,   Cache Stall Counter: %0d", cpu1.miss_pulse_ctr, cpu1.cache_stall_ctr);
-        $display("Stall Count: %0d,     Branch Flush Count: %0d", cpu1.stall_ctr, cpu1.br_flush_ctr);
-        $display("Flushed Instructions Count: %0d", cpu1.flush_instr_ctr);
+        $display("\nCycle Count: %0d,    Instructions Retired: %0d", cycle_ctr, instr_ret_ctr);
+        $display("Stall Count: %0d,     Branch Flush Count: %0d", stall_ctr, br_flush_ctr);
+        $display("Flushed Instructions Count: %0d", flush_instr_ctr);
         $display("CPI: %0f", cpi);
         $display("IPC: %0f\n", ipc);
     end else begin
