@@ -19,7 +19,7 @@ always #1 clk = ~clk;
 initial begin
     timeout = 2_000_000;
     clk = 0;
-    program_sel = 2'b10;
+    program_sel = 2'b11;
     
     #2;
     reset = 1;
@@ -53,6 +53,11 @@ initial begin
                 check_reg(6, 32'd7);
                 check_mem(0, 32'h00000008);
                 check_mem(1, 32'h00000009);
+                end
+        2'b11:  begin
+                check_reg(1, 32'd5050);
+                check_reg(2, 32'd0);
+                check_mem(0, 32'd5050);
                 end
         default: begin end
     endcase 
