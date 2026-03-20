@@ -1,6 +1,7 @@
 `timescale 1ns / 1ps
 
 module instr_memory(
+    input clk,
     input reset,
     input [31:0] pc_address,
     input [1:0] program_sel,
@@ -11,7 +12,8 @@ reg [31:0] mem [31:0];
 wire [4:0] index;
 integer i;
 
-always @(posedge reset) begin
+always @(posedge clk) begin
+    if (reset) begin
         for(i = 0; i < 32; i = i+1)
             mem[i] = 32'h00000000;
         
@@ -65,8 +67,18 @@ always @(posedge reset) begin
                     mem[7] = 32'h00700313; // addi x6, x0, 7
                     mem[8] = 32'h00000063; // beq x0, x0, 0 (finish)
                     end
+            2'b11: begin
+                   mem[0] = 32'h00000093; // addi x1, x0, 0
+                   mem[1] = 32'h06400113; // addi x2, x0, 100
+                   mem[2] = 32'h002080b3; // add x1, x1, x2
+                   mem[3] = 32'hfff10113; // addi x2, x2, -1
+                   mem[4] = 32'hfe011ce3; // bne x2, x0, -8
+                   mem[5] = 32'h00102023; // sw x1, 0(x0)
+                   mem[6] = 32'h00000063; // beq x0, x0, 0 (finish)
+                   end
             default: begin end
         endcase
+    end
 end
 
 assign index = pc_address / 4;
