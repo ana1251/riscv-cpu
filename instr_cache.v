@@ -9,7 +9,8 @@ module instr_cache(
     output instr_valid,
     output cache_stall,
     output [31:0] mem_pc,
-    output miss_pulse
+    output miss_pulse,
+    output reg [31:0] miss_ctr
 );
 
 reg [31:0] data [15:0];
@@ -43,6 +44,7 @@ always @(posedge clk) begin
         miss_pc <= 0;
         miss_index <= 0;
         miss_tag <= 0;
+        miss_ctr <= 0;
                 
         for (i = 0; i < 16; i = i+1) begin
             data[i] <= 32'h00000013;
@@ -50,8 +52,8 @@ always @(posedge clk) begin
             valid[i] <= 0;
         end
         
-    end else begin    
-        if (miss) begin   
+    end else begin
+        if (miss) begin
             if (miss_timer != 0) begin
                 miss_timer <= miss_timer - 3'd1;
             end else begin
@@ -66,6 +68,7 @@ always @(posedge clk) begin
             miss_index <= index;
             miss_tag <= pc_tag;
             miss_timer <= 3'd3;
+            miss_ctr <= miss_ctr + 1;
         end
     end
 end
