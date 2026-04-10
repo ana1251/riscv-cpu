@@ -19,7 +19,7 @@ always #1 clk = ~clk;
 initial begin
     timeout = 2_000_000;
     clk = 0;
-    program_sel = 2'b11;
+    program_sel = 2'b00;
     
     #2;
     reset = 1;
@@ -68,7 +68,8 @@ initial begin
         cpi = $itor(cpu1.cycle_ctr) / $itor(cpu1.instr_ret_ctr);
         ipc = 1.0 / cpi;
         $display("\nCycle Count: %0d,    Instructions Retired: %0d", cpu1.cycle_ctr, cpu1.instr_ret_ctr);
-        $display("Miss Counter: %0d,   Cache Stall Counter: %0d", cpu1.miss_pulse_ctr, cpu1.cache_stall_ctr);
+        $display("Miss Counter: %0d,   Cache Stall Counter: %0d", cpu1.miss_ctr, cpu1.cache_stall_ctr);
+        $display("Cache Access Counter: %0d, Miss pulse ctr = %0d", cpu1.cache_access_ctr, cpu1.miss_pulse_ctr);
         $display("Stall Count: %0d,     Branch Flush Count: %0d", cpu1.stall_ctr, cpu1.br_flush_ctr);
         $display("Flushed Instructions Count: %0d", cpu1.flush_instr_ctr);
         $display("CPI: %0f", cpi);
