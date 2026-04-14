@@ -10,17 +10,18 @@ module cpu_top(
 );
 
 reg [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr, flush_instr_ctr,
-            miss_pulse_ctr, cache_stall_ctr, cache_access_ctr;
+            miss_ctr, cache_stall_ctr;
+reg stop_fetch;
 wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr, 
-            cache_instr, mem_pc;
-wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall, miss_ctr;
+            cache_instr, mem_pc, cache_access_ctr;
+wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall;
 wire [6:0] funct7;
 wire [4:0] rs1, rs2, rd, WB_reg_sel;
 wire [3:0] alu_sel;
 wire [2:0] funct3;
 wire [1:0] alu_op;
 wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall, instr_valid;
-wire jal, jalr, redirect, load_hazard, miss_pulse, stall, fetch_stall;
+wire jal, jalr, redirect, load_hazard, miss_pulse, stall, fetch_stall, request, ready, finish_instr, fetch_req;
 
 
 // pipeline registers
@@ -55,7 +56,16 @@ assign pc4_ID = IF_ID_pc + 4;
 assign next_pc = (ID_EX_valid && branch_taken) ? pc_branch : 
                  (ID_EX_valid && ID_EX_jal) ? pc_jal : 
                  (ID_EX_valid && ID_EX_jalr) ? pc_jalr : pc4_IF;
-assign stop = ID_EX_valid && ID_EX_branch && branch_taken && (pc_branch == ID_EX_pc);
+
+assign finish_instr = ID_EX_valid && (IF_ID_instr == 32'h00000063);
+assign stop = stop_fetch && !IF_ID_valid && !ID_EX_valid && !EX_MEM_valid && !MEM_WB_valid;
+
+always @ (posedge clk) begin
+    if (reset)
+        stop_fetch = 0;
+    else if (finish_instr)
+        stop_fetch = 1;
+end
 
 // Hazards          
 assign load_hazard = ID_EX_mem_sel && (ID_EX_rd != 0) && ((ID_EX_rd == rs1) || (ID_EX_rd == rs2));
@@ -63,7 +73,8 @@ assign redirect = ID_EX_valid && (branch_taken || ID_EX_jal || ID_EX_jalr);
 
 assign fetch_stall = cache_stall || miss_pulse;
 assign stall = fetch_stall || load_hazard;
-assign pc_stall = redirect ? next_pc : stall ? pc_reg : pc4_IF;
+assign pc_stall = stop_fetch ? pc_reg : redirect ? next_pc : stall ? pc_reg : pc4_IF;
+assign fetch_req = !reset && !fetch_stall;
 
 
 // IF/ID stage
@@ -72,6 +83,10 @@ always @(posedge clk) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= 32'd0;
         IF_ID_valid <= 0;
+    end else if (stop_fetch) begin
+        IF_ID_instr <= IF_ID_instr;
+        IF_ID_pc <= IF_ID_pc;
+        IF_ID_valid <= 1'b0;
     end else if (redirect) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= 0;
@@ -231,11 +246,13 @@ assign WB_we_sel = MEM_WB_reg_we;
 // Functions called
 pc p2 (.clk(clk), .reset(reset), .next_pc(pc_stall), .pc_reg(pc_reg));
 
-instr_memory m2 (.clk(clk), .reset(reset), .pc_address(mem_pc), .program_sel(program_sel), .instruction(mem_instr));
+instr_memory m2 (.clk(clk), .reset(reset), .pc_address(mem_pc), .program_sel(program_sel), .request(request),
+                 .ready(ready), .instruction(mem_instr));
 
-instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .instr_out(cache_instr),
-                .instr_valid(instr_valid), .cache_stall(cache_stall), .mem_pc(mem_pc), .miss_pulse(miss_pulse),
-                .miss_ctr(miss_ctr));
+instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .fetch_req(fetch_req),
+                .ready(ready), .request(request), .instr_out(cache_instr), .instr_valid(instr_valid),
+                .cache_stall(cache_stall), .mem_pc(mem_pc), .miss_pulse(miss_pulse),
+                .cache_access_ctr(cache_access_ctr));
 
 decoder d2 (.instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .rd(rd), .reg_we(reg_we),
             .mem_we(mem_we), .op2_sel(op2_sel), .is_sw(is_sw), .mem_sel(mem_sel), .funct3(funct3),
@@ -272,9 +289,8 @@ always @(posedge clk) begin
         stall_ctr <= 0;
         br_flush_ctr <= 0;
         flush_instr_ctr <= 0;
-        miss_pulse_ctr <= 0;
+        miss_ctr <= 0;
         cache_stall_ctr <= 0;
-        cache_access_ctr <= 0;
     end else begin
         if (MEM_WB_valid)
             instr_ret_ctr <= instr_ret_ctr + 1;
@@ -285,11 +301,9 @@ always @(posedge clk) begin
         if (ID_EX_valid && redirect && !fetch_stall)
             flush_instr_ctr <= flush_instr_ctr + ((IF_ID_instr != 32'h00000013) + (cache_instr != 32'h00000013));
         if (miss_pulse)
-            miss_pulse_ctr <= miss_pulse_ctr + 1;
+            miss_ctr <= miss_ctr + 1;
         if (fetch_stall)
             cache_stall_ctr <= cache_stall_ctr + 1;
-        if (instr_valid)
-            cache_access_ctr <= cache_access_ctr + 1;
     end
 end
 
