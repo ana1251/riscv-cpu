@@ -14,7 +14,7 @@ reg [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr, flush_instr_ctr,
 reg stop_fetch;
 wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr, 
             cache_instr, mem_pc, cache_access_ctr;
-wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, next_pc, pc_jal, pc_jalr, pc_stall;
+wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, pc_jal, pc_jalr, pc_stall, next_pc, correct_pc;
 wire [6:0] funct7;
 wire [4:0] rs1, rs2, rd, WB_reg_sel;
 wire [3:0] alu_sel;
@@ -51,11 +51,13 @@ assign imm_b = {{19{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[7], IF_ID_in
 assign imm_i = {{20{IF_ID_instr[31]}}, IF_ID_instr[31:20]};
 assign imm_j = {{11{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[19:12], IF_ID_instr[20], IF_ID_instr[30:21], 1'b0};
 
+
 assign pc4_IF = pc_reg + 4;
 assign pc4_ID = IF_ID_pc + 4;
-assign next_pc = (ID_EX_valid && branch_taken) ? pc_branch : 
-                 (ID_EX_valid && ID_EX_jal) ? pc_jal : 
-                 (ID_EX_valid && ID_EX_jalr) ? pc_jalr : pc4_IF;
+assign correct_pc = (ID_EX_valid && branch_taken) ? pc_branch : 
+                    (ID_EX_valid && ID_EX_jal) ? pc_jal : 
+                    (ID_EX_valid && ID_EX_jalr) ? pc_jalr : pc4_IF;
+assign next_pc = redirect ? correct_pc : pc4_IF;
 
 assign finish_instr = ID_EX_valid && (IF_ID_instr == 32'h00000063);
 assign stop = stop_fetch && !IF_ID_valid && !ID_EX_valid && !EX_MEM_valid && !MEM_WB_valid;
@@ -82,15 +84,15 @@ always @(posedge clk) begin
     if (reset) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= 32'd0;
-        IF_ID_valid <= 0;
+        IF_ID_valid <= 1'b0;
     end else if (stop_fetch) begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= 1'b0;
     end else if (redirect) begin
         IF_ID_instr <= 32'h00000013;
-        IF_ID_pc <= 0;
-        IF_ID_valid <= 0;
+        IF_ID_pc <= IF_ID_pc;
+        IF_ID_valid <= 1'b0;
     end else if (load_hazard) begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
@@ -98,7 +100,7 @@ always @(posedge clk) begin
     end else if (instr_valid) begin
         IF_ID_instr <= cache_instr;
         IF_ID_pc <= pc_reg;
-        IF_ID_valid <= 1;    
+        IF_ID_valid <= 1'b1;    
     end else begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
