@@ -30,7 +30,7 @@ module EX_stage(
 );
 
 wire beq, blt, bltu;
-wire [31:0] forward_a, forward_rs2, forward_sw;
+wire [31:0] forward_a, forward_rs2;
 wire [31:0] alu_b;
 
 assign forward_a = (exmem_reg_we && (exmem_rd != 0) && (exmem_rd == idex_rs1) && !exmem_memsel) ? exmem_wbval :
