@@ -11,16 +11,16 @@ module instr_memory(
 );
     
 reg [31:0] mem [31:0], instr, latched_pc;
-reg [4:0] index;
-reg [3:0] wait_ctr;
+reg [4:0] index; 
+reg [6:0] wait_ctr;
 reg busy;
 integer i;
 
 always @(posedge clk) begin
     if (reset) begin
-        wait_ctr = 0;
-        busy = 0;
-        ready = 0;
+        wait_ctr <= 0;
+        busy <= 0;
+        ready <= 0;
         
         for(i = 0; i < 32; i = i+1)
             mem[i] = 32'h00000000;
@@ -87,7 +87,7 @@ always @(posedge clk) begin
             default: begin end
         endcase
     end
-    
+
     if (request && !busy) begin
         latched_pc <= pc_address;
         busy <= 1;
@@ -97,12 +97,11 @@ always @(posedge clk) begin
     
     if (busy) begin
         if (wait_ctr == 0) begin
-            index <= latched_pc / 4;
-            instr <= mem[index];
+            instr <= mem[latched_pc[31:2]];
             ready <= 1;
             busy <= 0;
         end else begin
-            wait_ctr = wait_ctr + 1;
+            wait_ctr <= wait_ctr - 1;
         end
     end    
 end
