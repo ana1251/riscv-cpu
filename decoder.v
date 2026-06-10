@@ -125,5 +125,3 @@ endmodule
 // xxxx xxxy yyyy zzzz z010 xxxx x010 0011
 // imm = x, rs2 = y, rs1 = z
 // Opcode: 010 0011, funct3 = 010
-
-
