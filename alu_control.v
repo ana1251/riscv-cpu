@@ -10,6 +10,7 @@
 `define ALU_SLL     4'b0111
 `define ALU_SRL     4'b1000
 `define ALU_SRA     4'b1001
+`define ALU_MAC     4'b1010     // multply accumulate (custom instruction)
 
 module alu_control(
     input [1:0] alu_op,
@@ -22,7 +23,7 @@ always @(*) begin
     case (alu_op)
         2'b00: alu_sel = `ALU_ADD;     // for load/store
         2'b01: alu_sel = `ALU_SUB;     // for branches
-        2'b10: begin               // R-type
+        2'b10: begin                   // R-type
                case ({funct7, funct3})
                     10'b0000000000: alu_sel = `ALU_ADD;
                     10'b0100000000: alu_sel = `ALU_SUB;
@@ -34,6 +35,7 @@ always @(*) begin
                     10'b0000000001: alu_sel = `ALU_SLL;
                     10'b0000000101: alu_sel = `ALU_SRL;
                     10'b0100000101: alu_sel = `ALU_SRA;
+                    10'b0001000000: alu_sel = `ALU_MAC;
                     default: alu_sel = 0;
                endcase
                end
