@@ -26,7 +26,7 @@ always @(posedge clk) begin
             mem[i] = 32'h00000000;
         
         case (program_sel)
-            2'b000:  begin
+            3'b000: begin
                     mem[0]  = 32'h00500093; // addi x1, x0, 5
                     mem[1]  = 32'hffd00113; // addi x2, x0, -3
                     mem[2]  = 32'h00100193; // addi x3, x0, 1
@@ -48,7 +48,7 @@ always @(posedge clk) begin
                     mem[18] = 32'h01f95993; // srli x19, x18, 31
                     mem[19] = 32'h00000063; // beq x0, x0, 0 (finish)
                     end
-            2'b001:  begin
+            3'b001: begin
                     mem[0]  = 32'h00000093; // addi x1, x0, 0
                     mem[1]  = 32'h00500113; // addi x2, x0, 5
                     mem[2]  = 32'h00100193; // addi x3, x0, 1
@@ -64,7 +64,7 @@ always @(posedge clk) begin
                     mem[12] = 32'h00700313; // addi x6, x0, 7  
                     mem[13] = 32'h00000063; // beq x0, x0, 0 (finish)
                     end
-            2'b010:  begin
+            3'b010: begin
                     mem[0] = 32'h00000093; // addi x1, x0, 0
                     mem[1] = 32'h00800113; // addi x2, x0, 8
                     mem[2] = 32'h00900193; // addi x3, x0, 9
@@ -75,7 +75,7 @@ always @(posedge clk) begin
                     mem[7] = 32'h00700313; // addi x6, x0, 7
                     mem[8] = 32'h00000063; // beq x0, x0, 0 (finish)
                     end
-            2'b011:  begin
+            3'b011: begin
                     mem[0] = 32'h00000093; // addi x1, x0, 0
                     mem[1] = 32'h06400113; // addi x2, x0, 100
                     mem[2] = 32'h002080b3; // add x1, x1, x2
@@ -83,8 +83,18 @@ always @(posedge clk) begin
                     mem[4] = 32'hfe011ce3; // bne x2, x0, -8
                     mem[5] = 32'h00102023; // sw x1, 0(x0)
                     mem[6] = 32'h00000063; // beq x0, x0, 0 (finish)
+                    end  
+            3'b100: begin
+                    mem[0] = 32'h00500093; // addi x1, x0, 5 
+                    mem[1] = 32'h00400113; // addi x2, x0, 4   (matrix 1: [5 4])
+                    mem[2] = 32'h00300193; // addi x3, x0, 3
+                    mem[3] = 32'h00700213; // addi x4, x0, 7   (matrix 2: [3 7])
+                    mem[4] = 32'h00000293; // addi x5, x0, 0
+                    mem[5] = 32'h103082b3; // mac x5, x1, x3
+                    mem[6] = 32'h104102b3; // mac x5, x2, x4
+                    mem[7] = 32'h00000063; // beq x0, x0, 0 (finish)
                     end
-            default: begin end
+            default: begin end  
         endcase
     end
 
