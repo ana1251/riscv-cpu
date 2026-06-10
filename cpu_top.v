@@ -9,31 +9,35 @@ module cpu_top(
     output stop
 );
 
-reg [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr, flush_instr_ctr,
-            miss_ctr, cache_stall_ctr;
-reg stop_fetch;
-wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, WB_data, mem_instr, 
-            cache_instr, mem_pc, cache_access_ctr;
-wire [31:0] pc_reg, pc4_IF, pc4_ID, pc_branch, pc_jal, pc_jalr, pc_stall, next_pc, correct_pc;
+reg [31:0] cycle_ctr, instr_ret_ctr, stall_ctr, br_flush_ctr, flush_instr_ctr, miss_ctr, 
+           cache_stall_ctr, total_br_ctr, correct_br_ctr, br_mispredict_ctr, bt_table [31:0];
+reg stop_fetch, branch_hist [31:0], br_valid [31:0];
+
+wire [31:0] op1, op2, alu_out, mem_rd, imm_b, imm_i, imm_j, imm32, store_data, mem_instr, 
+            cache_instr, mem_pc, cache_access_ctr, pc_reg, pc4_IF, pc4_ID, pc_branch, pc_jal, pc_jalr,
+            pc_stall, next_pc, correct_pc, predicted_pc;
 wire [6:0] funct7;
-wire [4:0] rs1, rs2, rd, WB_reg_sel;
+wire [4:0] rs1, rs2, rd, br_hist_index, bht_EX;
 wire [3:0] alu_sel;
 wire [2:0] funct3;
 wire [1:0] alu_op;
-wire reg_we, mem_we, op2_sel, is_sw, mem_sel, WB_we_sel, branch, branch_taken, cache_stall, instr_valid;
-wire jal, jalr, redirect, load_hazard, miss_pulse, stall, fetch_stall, request, ready, finish_instr, fetch_req;
+wire reg_we, mem_we, op2_sel, is_sw, mem_sel, branch, branch_taken, cache_stall, instr_valid, 
+     predict_taken, jal, jalr, redirect, load_hazard, miss_pulse, stall, fetch_stall, request, ready,
+     finish_instr, fetch_req, is_branch, br_mispredict, alu_error_flag, alu_compare_stall;
+integer i;
 
 
 // pipeline registers
-reg [31:0] IF_ID_instr, IF_ID_pc;
-reg IF_ID_valid;
+reg [31:0] IF_ID_instr, IF_ID_pc, IF_ID_pred_pc;
+reg IF_ID_valid, IF_ID_pred_taken;
 
-reg [31:0] ID_EX_op1, ID_EX_op2, ID_EX_pc4, ID_EX_imm32, ID_EX_immb, ID_EX_immj, ID_EX_pc;
+reg [31:0] ID_EX_op1, ID_EX_op2, ID_EX_rdval, ID_EX_pc4, ID_EX_imm32, ID_EX_immb, ID_EX_immj, ID_EX_pc, ID_EX_pred_pc;
 reg [6:0] ID_EX_funct7;
 reg [4:0] ID_EX_rd, ID_EX_rs1, ID_EX_rs2;
 reg [2:0] ID_EX_funct3;
 reg [1:0] ID_EX_aluop;
-reg ID_EX_reg_we, ID_EX_mem_we, ID_EX_mem_sel, ID_EX_op2_sel, ID_EX_branch, ID_EX_jal, ID_EX_jalr, ID_EX_valid;
+reg ID_EX_reg_we, ID_EX_mem_we, ID_EX_mem_sel, ID_EX_op2_sel, ID_EX_branch, ID_EX_jal, ID_EX_jalr, ID_EX_valid, 
+    ID_EX_pred_taken;
 
 reg [31:0] EX_MEM_alu_out, EX_MEM_sd, EX_MEM_pc4, EX_MEM_pcbr, EX_MEM_wbval;
 reg [4:0] EX_MEM_rd;
@@ -43,6 +47,10 @@ reg [31:0] MEM_WB_alu_out, MEM_WB_mem_rd, MEM_WB_pc4, MEM_WB_wbval;
 reg [4:0] MEM_WB_rd;
 reg MEM_WB_reg_we, MEM_WB_mem_sel, MEM_WB_jal, MEM_WB_jalr, MEM_WB_valid;
 
+wire [31:0] WB_data;
+wire [4:0] WB_reg_sel;
+wire WB_we_sel;
+
 // FPGA register view selection + data
 assign reg_view_data = id1.dut.regs[reg_view_sel];
 
@@ -51,31 +59,54 @@ assign imm_b = {{19{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[7], IF_ID_in
 assign imm_i = {{20{IF_ID_instr[31]}}, IF_ID_instr[31:20]};
 assign imm_j = {{11{IF_ID_instr[31]}}, IF_ID_instr[31], IF_ID_instr[19:12], IF_ID_instr[20], IF_ID_instr[30:21], 1'b0};
 
+// Branch prediction
+assign br_hist_index = pc_reg[6:2];
+assign predict_taken = branch_hist[br_hist_index] && br_valid[br_hist_index];
+assign bht_EX = ID_EX_pc[6:2];
+assign br_mispredict = ID_EX_valid && ID_EX_branch && ((ID_EX_pred_taken != branch_taken) || 
+                       (branch_taken && ID_EX_pred_taken && (ID_EX_pred_pc != pc_branch)));
+assign predicted_pc = bt_table[br_hist_index];
+
+always @(posedge clk) begin
+    if (reset) begin
+        for (i = 0; i <= 31; i=i+1) begin
+            branch_hist[i] <= 1'b0;
+            br_valid[i] <= 1'b0;
+            bt_table[i] <= 32'd0;
+        end
+    end else if (!alu_compare_stall && (ID_EX_valid && ID_EX_branch && ID_EX_jal && ID_EX_jalr)) begin
+        branch_hist[bht_EX] <= branch_taken;
+        br_valid[bht_EX] <= 1'b1;
+        bt_table[bht_EX] <= pc_branch;
+    end
+end
 
 assign pc4_IF = pc_reg + 4;
 assign pc4_ID = IF_ID_pc + 4;
-assign correct_pc = (ID_EX_valid && branch_taken) ? pc_branch : 
+assign correct_pc = (ID_EX_valid && ID_EX_branch && branch_taken) ? pc_branch : 
+                    (ID_EX_valid && ID_EX_branch && !branch_taken) ? (ID_EX_pc + 4) :
                     (ID_EX_valid && ID_EX_jal) ? pc_jal : 
                     (ID_EX_valid && ID_EX_jalr) ? pc_jalr : pc4_IF;
-assign next_pc = redirect ? correct_pc : pc4_IF;
 
+// Stop program
 assign finish_instr = ID_EX_valid && (IF_ID_instr == 32'h00000063);
-assign stop = stop_fetch && !IF_ID_valid && !ID_EX_valid && !EX_MEM_valid && !MEM_WB_valid;
+assign stop = (stop_fetch && !IF_ID_valid && !ID_EX_valid && !EX_MEM_valid && !MEM_WB_valid);
 
 always @ (posedge clk) begin
     if (reset)
         stop_fetch = 0;
-    else if (finish_instr)
+    else if (finish_instr || alu_error_flag)
         stop_fetch = 1;
 end
 
 // Hazards          
 assign load_hazard = ID_EX_mem_sel && (ID_EX_rd != 0) && ((ID_EX_rd == rs1) || (ID_EX_rd == rs2));
-assign redirect = ID_EX_valid && (branch_taken || ID_EX_jal || ID_EX_jalr);
+assign redirect = !alu_compare_stall && (br_mispredict || (ID_EX_valid && (ID_EX_jal || ID_EX_jalr)));
 
 assign fetch_stall = cache_stall || miss_pulse;
 assign stall = fetch_stall || load_hazard;
-assign pc_stall = stop_fetch ? pc_reg : redirect ? next_pc : stall ? pc_reg : pc4_IF;
+assign pc_stall = stop_fetch ? pc_reg : redirect ? correct_pc : alu_compare_stall ? pc_reg :
+                  stall ? pc_reg : predict_taken ? predicted_pc : pc4_IF;
 assign fetch_req = !reset && !fetch_stall;
 
 
@@ -85,6 +116,8 @@ always @(posedge clk) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= 32'd0;
         IF_ID_valid <= 1'b0;
+        IF_ID_pred_taken <= 1'b0;
+        IF_ID_pred_pc  <= 32'b0;
     end else if (stop_fetch) begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
@@ -93,14 +126,24 @@ always @(posedge clk) begin
         IF_ID_instr <= 32'h00000013;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= 1'b0;
+        IF_ID_pred_taken <= 1'b0;
+        IF_ID_pred_pc <= 32'b0;
+    end else if (alu_compare_stall) begin
+        IF_ID_instr <= IF_ID_instr;
+        IF_ID_pc <= IF_ID_pc;
+        IF_ID_valid <= IF_ID_valid;
     end else if (load_hazard) begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
         IF_ID_valid <= IF_ID_valid;
-    end else if (instr_valid) begin
+        IF_ID_pred_taken <= 1'b0;
+        IF_ID_pred_pc <= IF_ID_pred_pc;
+    end else if (instr_valid && !fetch_stall) begin
         IF_ID_instr <= cache_instr;
         IF_ID_pc <= pc_reg;
         IF_ID_valid <= 1'b1;    
+        IF_ID_pred_taken <= predict_taken;
+        IF_ID_pred_pc <= predicted_pc;
     end else begin
         IF_ID_instr <= IF_ID_instr;
         IF_ID_pc <= IF_ID_pc;
@@ -113,6 +156,7 @@ always @(posedge clk) begin
     if (reset) begin
         ID_EX_rs1 <= 0;
         ID_EX_rs2 <= 0;
+        ID_EX_rdval <= 0;
         ID_EX_op1 <= 0;
         ID_EX_op2 <= 0;
         ID_EX_pc4 <= 0;
@@ -132,9 +176,12 @@ always @(posedge clk) begin
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
+        ID_EX_pred_taken <= 0;
+        ID_EX_pred_pc <= 0;
     end else if (redirect || load_hazard) begin
         ID_EX_rs1 <= 0;
         ID_EX_rs2 <= 0;
+        ID_EX_rdval <= 0;
         ID_EX_op1 <= 0;
         ID_EX_op2 <= 0;
         ID_EX_pc4 <= 0;
@@ -154,9 +201,33 @@ always @(posedge clk) begin
         ID_EX_jal <= 0;
         ID_EX_jalr <= 0;
         ID_EX_valid <= 0;
+    end else if (alu_compare_stall) begin
+        ID_EX_rs1 <= ID_EX_rs1;
+        ID_EX_rs2 <= ID_EX_rs2;
+        ID_EX_rdval <= ID_EX_rdval;
+        ID_EX_op1 <= ID_EX_op1;
+        ID_EX_op2 <= ID_EX_op2;
+        ID_EX_pc4 <= ID_EX_pc4;
+        ID_EX_rd <= ID_EX_rd;
+        ID_EX_reg_we <= ID_EX_reg_we;
+        ID_EX_mem_we <= ID_EX_mem_we;
+        ID_EX_mem_sel <= ID_EX_mem_sel;
+        ID_EX_op2_sel <= ID_EX_op2_sel;
+        ID_EX_imm32 <= ID_EX_imm32;
+        ID_EX_immb <= ID_EX_immb;
+        ID_EX_immj <= ID_EX_immj;
+        ID_EX_branch <= ID_EX_branch;
+        ID_EX_pc <= ID_EX_pc;
+        ID_EX_funct3 <= ID_EX_funct3;
+        ID_EX_aluop <= ID_EX_aluop;
+        ID_EX_funct7 <= ID_EX_funct7;
+        ID_EX_jal <= ID_EX_jal;
+        ID_EX_jalr <= ID_EX_jalr;
+        ID_EX_valid <= ID_EX_valid; 
     end else begin
         ID_EX_rs1 <= rs1;
         ID_EX_rs2 <= rs2;
+        ID_EX_rdval <= IF_ID_valid ? id1.dut.regs[rd] : 32'd0;
         ID_EX_op1 <= op1;
         ID_EX_op2 <= op2;
         ID_EX_pc4 <= pc4_ID;
@@ -176,6 +247,8 @@ always @(posedge clk) begin
         ID_EX_mem_sel <= IF_ID_valid ? mem_sel : 0;
         ID_EX_op2_sel <= IF_ID_valid ? op2_sel : 0;
         ID_EX_branch <= IF_ID_valid ? branch : 0;
+        ID_EX_pred_taken <= IF_ID_pred_taken;
+        ID_EX_pred_pc <= IF_ID_pred_pc;
     end
 end
 
@@ -194,7 +267,21 @@ always @(posedge clk) begin
         EX_MEM_pcbr <= 0;
         EX_MEM_bt <= 0;
         EX_MEM_wbval <= 0;
-        EX_MEM_valid <= 0;
+        EX_MEM_valid <= 0; 
+   end else if (alu_compare_stall) begin
+        EX_MEM_rd <= EX_MEM_rd;
+        EX_MEM_alu_out <= EX_MEM_alu_out;
+        EX_MEM_reg_we <= EX_MEM_reg_we;
+        EX_MEM_mem_sel <= EX_MEM_mem_sel;
+        EX_MEM_mem_we <= EX_MEM_mem_we;
+        EX_MEM_sd <= EX_MEM_sd;
+        EX_MEM_pc4 <= EX_MEM_pc4;
+        EX_MEM_jal <= EX_MEM_jal;
+        EX_MEM_jalr <= EX_MEM_jalr;
+        EX_MEM_pcbr <= EX_MEM_pcbr;
+        EX_MEM_bt <= EX_MEM_bt;
+        EX_MEM_wbval <= EX_MEM_wbval;
+        EX_MEM_valid <= EX_MEM_valid;
     end else begin
         EX_MEM_rd <= ID_EX_rd;
         EX_MEM_alu_out <= alu_out;
@@ -225,6 +312,17 @@ always @(posedge clk) begin
         MEM_WB_jalr <= 0;
         MEM_WB_valid <= 0;
         MEM_WB_wbval <= 0;
+    end else if (alu_compare_stall) begin
+        MEM_WB_alu_out <= MEM_WB_alu_out;
+        MEM_WB_mem_rd <= MEM_WB_mem_rd;
+        MEM_WB_pc4 <= MEM_WB_pc4;
+        MEM_WB_rd <= MEM_WB_rd;
+        MEM_WB_reg_we <= MEM_WB_reg_we;
+        MEM_WB_mem_sel <= MEM_WB_mem_sel;
+        MEM_WB_jal <= MEM_WB_jal;
+        MEM_WB_jalr <= MEM_WB_jalr;
+        MEM_WB_valid <= MEM_WB_valid;
+        MEM_WB_wbval <= MEM_WB_wbval;
     end else begin
         MEM_WB_alu_out <= EX_MEM_alu_out;
         MEM_WB_mem_rd <= mem_rd;
@@ -245,7 +343,7 @@ assign WB_reg_sel = MEM_WB_rd;
 assign WB_we_sel = MEM_WB_reg_we;
 
 
-// Functions called
+// Other modules
 pc p2 (.clk(clk), .reset(reset), .next_pc(pc_stall), .pc_reg(pc_reg));
 
 instr_memory m2 (.clk(clk), .reset(reset), .pc_address(mem_pc), .program_sel(program_sel), .request(request),
@@ -258,20 +356,22 @@ instr_cache c1 (.clk(clk), .reset(reset), .pc(pc_reg), .mem_instr(mem_instr), .f
 
 decoder d2 (.instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .rd(rd), .reg_we(reg_we),
             .mem_we(mem_we), .op2_sel(op2_sel), .is_sw(is_sw), .mem_sel(mem_sel), .funct3(funct3),
-            .funct7(funct7), .alu_op(alu_op), .branch(branch), .jal(jal), .jalr(jalr));                
+            .funct7(funct7), .alu_op(alu_op), .branch(branch), .jal(jal), .jalr(jalr));    
+            
 ID_stage id1 (.clk(clk), .reset(reset), .instruction(IF_ID_instr), .rs1(rs1), .rs2(rs2), .WB_reg_sel(WB_reg_sel),
               .WB_data(WB_data), .op2_sel(op2_sel), .WB_we_sel(WB_we_sel), .is_sw(is_sw), .op1(op1),
               .op2(op2), .imm32(imm32));
 
 alu_control a1 (.alu_op(ID_EX_aluop), .funct3(ID_EX_funct3), .funct7(ID_EX_funct7), .alu_sel(alu_sel));
 
-EX_stage ex1 (.idex_rs1(ID_EX_rs1), .idex_rs2(ID_EX_rs2), .idex_op1(ID_EX_op1), .idex_op2(ID_EX_op2),
-              .idex_imm32(ID_EX_imm32), .idex_immj(ID_EX_immj), .idex_op2_sel(ID_EX_op2_sel), .idex_alusel(alu_sel),
-              .idex_branch(ID_EX_branch), .idex_funct3(ID_EX_funct3), .idex_pc(ID_EX_pc), .idex_immb(ID_EX_immb),
-              .exmem_rd(EX_MEM_rd), .exmem_alu_out(EX_MEM_alu_out), .exmem_wbval(EX_MEM_wbval), .exmem_reg_we(EX_MEM_reg_we),
+EX_stage ex1 (.clk(clk), .reset(reset), .idex_valid(ID_EX_valid), .idex_rs1(ID_EX_rs1), .idex_rs2(ID_EX_rs2),
+              .idex_rd(ID_EX_rdval), .idex_op1(ID_EX_op1), .idex_op2(ID_EX_op2), .idex_imm32(ID_EX_imm32), 
+              .idex_immj(ID_EX_immj), .idex_op2_sel(ID_EX_op2_sel), .idex_alusel(alu_sel), .idex_branch(ID_EX_branch),
+              .idex_funct3(ID_EX_funct3), .idex_pc(ID_EX_pc), .idex_immb(ID_EX_immb), .exmem_rd(EX_MEM_rd), 
+              .exmem_alu_out(EX_MEM_alu_out), .exmem_wbval(EX_MEM_wbval), .exmem_reg_we(EX_MEM_reg_we),
               .exmem_memsel(EX_MEM_mem_sel), .memwb_reg_we(MEM_WB_reg_we), .memwb_rd(MEM_WB_rd), .wb_data(WB_data),
               .alu_out(alu_out), .store_data(store_data), .branch_taken(branch_taken), .pc_branch(pc_branch),
-              .pc_jal(pc_jal), .pc_jalr(pc_jalr));
+              .pc_jal(pc_jal), .pc_jalr(pc_jalr), .alu_compare_stall(alu_compare_stall), .alu_error_flag(alu_error_flag));
 
 memory m1 (.clk(clk), .addr(EX_MEM_alu_out), .mem_we(EX_MEM_mem_we), .read_data(mem_rd), .write_data(EX_MEM_sd));
 
@@ -293,6 +393,9 @@ always @(posedge clk) begin
         flush_instr_ctr <= 0;
         miss_ctr <= 0;
         cache_stall_ctr <= 0;
+        total_br_ctr <= 0;
+        correct_br_ctr <= 0;
+        br_mispredict_ctr <= 0;
     end else begin
         if (MEM_WB_valid)
             instr_ret_ctr <= instr_ret_ctr + 1;
@@ -306,7 +409,13 @@ always @(posedge clk) begin
             miss_ctr <= miss_ctr + 1;
         if (fetch_stall)
             cache_stall_ctr <= cache_stall_ctr + 1;
+        if (!alu_compare_stall && (ID_EX_valid && ID_EX_branch)) begin
+            total_br_ctr = total_br_ctr + 1;
+            if (br_mispredict)
+                br_mispredict_ctr <= br_mispredict_ctr + 1;
+            else
+                correct_br_ctr <= correct_br_ctr + 1;
+        end
     end
 end
-
 endmodule
