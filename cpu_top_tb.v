@@ -18,7 +18,7 @@ always #1 clk = ~clk;
 initial begin
     timeout = 2_000_000;
     clk = 0;
-    program_sel = 2'b11;
+    program_sel = 3'b100;
     
     #2;
     reset = 1;
@@ -34,30 +34,35 @@ initial begin
 
     if (cpu1.alu_error_flag == 0) begin
         case (program_sel)
-            2'b000:  begin
+            3'b000: begin
                     check_reg(14, 32'h7FFFFFFE);
                     check_reg(15, 32'hFFFFFFFE);
                     check_reg(7, 32'd1);
                     check_reg(8, 32'd0);   
                     check_reg(19, 32'd1);
                     end
-            2'b001:  begin
+            3'b001: begin
                     check_reg(2, 32'd0);
                     check_reg(1, 32'd28);
                     check_reg(4, 32'd10);
                     check_reg(6, 32'd7);
                     end
-            2'b010:  begin
+            3'b010: begin
                     check_reg(4, 32'd8);
                     check_reg(5, 32'd9); 
                     check_reg(6, 32'd7);
                     check_mem(0, 32'h00000008);
                     check_mem(1, 32'h00000009);
                     end
-            2'b011:  begin
+            3'b011: begin
                     check_reg(1, 32'd5050);
                     check_reg(2, 32'd0);
                     check_mem(0, 32'd5050); 
+                    end
+            3'b100: begin
+                    check_reg(1, 32'd5);
+                    check_reg(3, 32'd3);
+                    check_reg(5, 32'd43);
                     end
             default: begin end
         endcase 
