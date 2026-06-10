@@ -3,7 +3,7 @@
 module cpu_top(
     input clk,
     input reset,
-    input [1:0] program_sel,
+    input [2:0] program_sel,
     input [4:0] reg_view_sel,
     output [31:0] reg_view_data,
     output stop
