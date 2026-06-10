@@ -10,10 +10,12 @@
 `define ALU_SLL     4'b0111
 `define ALU_SRL     4'b1000
 `define ALU_SRA     4'b1001
+`define ALU_MAC     4'b1010     // multply accumulate (custom instruction)
 
 module alu(
     input [31:0] a,
     input [31:0] b,
+    input [31:0] old_c,
     input [3:0] alu_sel,
     output reg [31:0] c
 );
@@ -30,6 +32,7 @@ always @(*) begin
         `ALU_SLL: c = a << b[4:0];
         `ALU_SRL: c = a >> b[4:0];
         `ALU_SRA: c = $signed(a) >>> b[4:0];
+        `ALU_MAC: c = old_c + (a * b);
         default: c = 0;
     endcase
 end
