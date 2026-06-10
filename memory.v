@@ -8,11 +8,11 @@ module memory(
     output [31:0] read_data
 );
 
-reg [31:0] mem [0:31];
+reg [31:0] mem [31:0];
 wire [4:0] index;
 integer i;
 
-assign index = addr >> 2;
+assign index = addr[31:2];
 assign read_data = mem[index];
 
 always @(posedge clk) begin
