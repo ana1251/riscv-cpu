@@ -365,7 +365,7 @@ ID_stage id1 (.clk(clk), .reset(reset), .instruction(IF_ID_instr), .rs1(rs1), .r
 alu_control a1 (.alu_op(ID_EX_aluop), .funct3(ID_EX_funct3), .funct7(ID_EX_funct7), .alu_sel(alu_sel));
 
 EX_stage ex1 (.clk(clk), .reset(reset), .idex_valid(ID_EX_valid), .idex_rs1(ID_EX_rs1), .idex_rs2(ID_EX_rs2),
-              .idex_rd(ID_EX_rdval), .idex_op1(ID_EX_op1), .idex_op2(ID_EX_op2), .idex_imm32(ID_EX_imm32), 
+              .idex_rdval(ID_EX_rdval), .idex_op1(ID_EX_op1), .idex_op2(ID_EX_op2), .idex_imm32(ID_EX_imm32), 
               .idex_immj(ID_EX_immj), .idex_op2_sel(ID_EX_op2_sel), .idex_alusel(alu_sel), .idex_branch(ID_EX_branch),
               .idex_funct3(ID_EX_funct3), .idex_pc(ID_EX_pc), .idex_immb(ID_EX_immb), .exmem_rd(EX_MEM_rd), 
               .exmem_alu_out(EX_MEM_alu_out), .exmem_wbval(EX_MEM_wbval), .exmem_reg_we(EX_MEM_reg_we),
