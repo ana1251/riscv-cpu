@@ -6,7 +6,7 @@ module EX_stage(
     input idex_valid,
     input [4:0] idex_rs1,
     input [4:0] idex_rs2,
-    input [4:0] idex_rd,
+    input [4:0] idex_rdval,
     input [31:0] idex_op1,
     input [31:0] idex_op2,
     input [31:0] idex_imm32,
@@ -45,7 +45,7 @@ assign forward_a = (exmem_reg_we && (exmem_rd != 0) && (exmem_rd == idex_rs1) &&
 assign forward_rs2 = (exmem_reg_we && (exmem_rd != 0) && (exmem_rd == idex_rs2) && !exmem_memsel) ? exmem_wbval :
                      (memwb_reg_we && (memwb_rd != 0) && (memwb_rd == idex_rs2)) ? wb_data : idex_op2; 
 assign forward_rdval = (exmem_reg_we && (exmem_rd != 0) && (exmem_rd == idex_rs2) && !exmem_memsel) ? exmem_wbval :
-                     (memwb_reg_we && (memwb_rd != 0) && (memwb_rd == idex_rs2)) ? wb_data : idex_rd; 
+    (memwb_reg_we && (memwb_rd != 0) && (memwb_rd == idex_rs2)) ? wb_data : idex_rdval; 
 
 assign store_data = forward_rs2;
 assign alu_b = (idex_op2_sel) ? idex_imm32 : forward_rs2;
